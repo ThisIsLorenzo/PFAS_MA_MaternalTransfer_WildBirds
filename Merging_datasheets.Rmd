@@ -1,11 +1,11 @@
 ---
-title: "Merging_datasheets"
+title: "Code"
 author: "LR"
 date: '2022-06-28'
 output: html_document
 ---
 
-This code merges the various datasheets of my relational database to create a final wide whole datasheet.
+The code of the following chunck merges the various datasheets of my relational database to create a final wide whole datasheet.
 
 ```{r}
 library(readr)
