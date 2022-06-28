@@ -1,0 +1,11 @@
+Timestamp,Cohort_ID,Species_ID,Study_ID,Life_stage,sampling_year,sampling_month,breeding_stage,laying_order,laying_order_comment,sampling_location
+21/06/2022 16:28:54,ch_001,se_001,S_001,adult,2009,March,breeding season,NA,NA,"Punta de la Banya, Ebro Delta Natural Park, Catalonia, Spain"
+21/06/2022 16:31:27,ch_002,se_001,S_001,egg,2009,March,NA,1,NA,"Punta de la Banya, Ebro Delta Natural Park, Catalonia, Spain"
+21/06/2022 16:53:13,ch_003,se_002,S_001,adult,2009,May,breeding season,NA,NA,"Punta de la Banya, Ebro Delta Natural Park, Catalonia, Spain"
+21/06/2022 16:54:31,ch_004,se_002,S_001,egg,2009,May,NA,1,NA,"Punta de la Banya, Ebro Delta Natural Park, Catalonia, Spain"
+22/06/2022 14:51:49,ch_005,se_003,S_002,adult,2010,April,NA,NA,NA,"Chantry Island, Lake Huron, Laurentian Great Lakes, North America"
+22/06/2022 14:53:39,ch_006,se_003,S_002,egg,2010,April,NA,NA,The study only provides the mean concentration among eggs of mixed laying order.,"Chantry Island, Lake Huron, Laurentian Great Lakes, North America"
+28/06/2022 13:14:45,ch_007,se_003,S_004,adult,2017,May,post-laying,NA,NA,"Oslofjord, Søndre Skjælholmen"
+28/06/2022 13:16:03,ch_008,se_003,S_004,adult,2017,May,post-laying,NA,NA,Store Revlingen
+28/06/2022 13:20:32,ch_009,se_003,S_004,egg,2017,May,NA,NA,"""A blood sample of 5 mL was taken from the brachial wing vein using a syringe flushed with heparin, and one egg was collected from the nest of the sampled female, ensuring that the egg belonged to the female. From each colony 15 blood samples and eggs were collected.""","Oslofjord, Søndre Skjælholmen"
+28/06/2022 13:21:58,ch_010,se_003,S_004,egg,2017,May,NA,NA,"""A blood sample of 5 mL was taken from the brachial wing vein using a syringe flushed with heparin, and one egg was collected from the nest of the sampled female, ensuring that the egg belonged to the female. From each colony 15 blood samples and eggs were collected.""",Store Revlingen

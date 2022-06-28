@@ -1,0 +1,66 @@
+Timestamp,Measurement_ID,Sample_ID,pfas_ID,Mean,Mean_comment,SE,SE_comment,SD,SD_comment,N,group_info
+22/06/2022 13:20,m_001,sm_001,pfas_001,27.29,ng/g,3.448856588,Not provided. Calculate using formula.,14.22,NA,17,adult
+22/06/2022 13:40,m_002,sm_002,pfas_001,74.7,ng/g ww,7.082040251,Not provided. Calculate using formula.,29.2,NA,17,egg
+22/06/2022 13:43,m_003,sm_003,pfas_001,25.17,ng/g,3.651740453,Not provided. Calculate using formula.,12.65,NA,12,adult
+22/06/2022 13:44,m_004,sm_004,pfas_001,82.5,ng/g ww,6.610660582,Not provided. Calculate using formula.,22.9,NA,12,egg
+22/06/2022 15:18,m_005,sm_005,pfas_004,0.8,"Arithmetic mean percent. The study provides the ΣPFSA = 85 +- 16 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",0.3,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,adult
+22/06/2022 15:21,m_006,sm_005,pfas_001,98.8,"Arithmetic mean percent. The study provides the ΣPFSA = 85 +- 16 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",0.3,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,adult
+22/06/2022 15:22,m_007,sm_005,pfas_005,0.5,"Arithmetic mean percent. The study provides the ΣPFSA = 85 +- 16 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",0.1,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,adult
+22/06/2022 15:27,m_008,sm_005,pfas_006,<0.05,"ng/g ww. Value under the method limits of quantitation (MLOQs). MLOQs for PFSAs and PFCAs were <0.1 and <0.05 ng/g ww, respectively. ",NA,NA,NA,NA,8,adult
+22/06/2022 15:42,m_009,sm_005,pfas_007,<0.05,"ng/g ww. Value under the method limits of quantitation (MLOQs). MLOQs for PFSAs and PFCAs were <0.1 and <0.05 ng/g ww, respectively. ",NA,NA,NA,NA,8,adult
+22/06/2022 15:44,m_010,sm_005,pfas_002,14.2,"Arithmetic mean percent. The study provides the ΣPFSA = 5.2 +- 3.8 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",4.5,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,adult
+22/06/2022 15:46,m_011,sm_005,pfas_008,28.3,"Arithmetic mean percent. The study provides the ΣPFSA = 5.2 +- 3.8 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",4.5,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,adult
+22/06/2022 15:49,m_012,sm_005,pfas_009,28.4,"Arithmetic mean percent. The study provides the ΣPFSA = 5.2 +- 3.8 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",2.7,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,adult
+22/06/2022 15:52,m_013,sm_005,pfas_010,23.9,"Arithmetic mean percent. The study provides the ΣPFSA = 5.2 +- 3.8 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",2.4,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,adult
+22/06/2022 15:54,m_014,sm_005,pfas_011,0-1.0,"""Where detection of the individual PFSAs or PFCAs was <60% in individual eggs or tissues, a min.emax. percent range is given.""",NA,NA,NA,NA,8,adult
+22/06/2022 15:56,m_015,sm_005,pfas_012,0-10.9,"""Where detection of the individual PFSAs or PFCAs was <60% in individual eggs or tissues, a min.emax. percent range is given.""",NA,NA,NA,NA,8,adult
+22/06/2022 15:57,m_016,sm_005,pfas_013,0-15.3,"""Where detection of the individual PFSAs or PFCAs was <60% in individual eggs or tissues, a min.emax. percent range is given.""",NA,NA,NA,NA,8,adult
+22/06/2022 15:58,m_017,sm_005,pfas_014,<0.05,"ng/g ww. Value under the method limits of quantitation (MLOQs). MLOQs for PFSAs and PFCAs were <0.1 and <0.05 ng/g ww, respectively. ",NA,NA,NA,NA,8,adult
+22/06/2022 16:02,m_018,sm_006,pfas_004,0-1.5,"""Where detection of the individual PFSAs or PFCAs was <60% in individual eggs or tissues, a min.emax. percent range is given.""",NA,NA,NA,NA,8,egg
+22/06/2022 16:04,m_019,sm_006,pfas_001,88.4,"Arithmetic mean percent. The study provides the ΣPFSA = 5.0 +- 0.9 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",1.7,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,egg
+22/06/2022 16:05,m_020,sm_006,pfas_005,11.4,"Arithmetic mean percent. The study provides the ΣPFSA = 5.0 +- 0.9 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",1.5,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,egg
+22/06/2022 16:11,m_021,sm_006,pfas_006,<0.05,"ng/g ww. Value under the method limits of quantitation (MLOQs). MLOQs for PFSAs and PFCAs were <0.1 and <0.05 ng/g ww, respectively.",NA,NA,NA,NA,8,egg
+22/06/2022 16:15,m_022,sm_006,pfas_007,<0.05,"ng/g ww. Value under the method limits of quantitation (MLOQs). MLOQs for PFSAs and PFCAs were <0.1 and <0.05 ng/g ww, respectively.",NA,NA,NA,NA,8,egg
+22/06/2022 16:16,m_023,sm_006,pfas_002,0-0.3,"""Where detection of the individual PFSAs or PFCAs was <60% in individual eggs or tissues, a min.emax. percent range is given.""",NA,NA,NA,NA,8,egg
+22/06/2022 16:16,m_024,sm_006,pfas_008,<0.05,"ng/g ww. Value under the method limits of quantitation (MLOQs). MLOQs for PFSAs and PFCAs were <0.1 and <0.05 ng/g ww, respectively.",NA,NA,NA,NA,8,egg
+22/06/2022 16:18,m_025,sm_006,pfas_009,1.4,"Arithmetic mean percent. The study provides the ΣPFSA = 22 +- 2 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",0.3,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,egg
+22/06/2022 16:20,m_026,sm_006,pfas_010,3.7,"Arithmetic mean percent. The study provides the ΣPFSA = 22 +- 2 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",0.8,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,egg
+22/06/2022 16:33,m_027,sm_006,pfas_011,7.2,"Arithmetic mean percent. The study provides the ΣPFSA = 22 +- 2 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",0.9,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,egg
+22/06/2022 16:34,m_028,sm_006,pfas_012,37.1,"Arithmetic mean percent. The study provides the ΣPFSA = 22 +- 2 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",1.6,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,egg
+22/06/2022 16:35,m_029,sm_006,pfas_013,26.8,"Arithmetic mean percent. The study provides the ΣPFSA = 22 +- 2 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",1.4,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,egg
+22/06/2022 16:36,m_030,sm_006,pfas_014,23.8,"Arithmetic mean percent. The study provides the ΣPFSA = 22 +- 2 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",1.7,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,egg
+22/06/2022 16:44,m_031,sm_007,pfas_004,0-2.1,"""Where detection of the individual PFSAs or PFCAs was <60% in individual eggs or tissues, a min.emax. percent range is given.""",NA,NA,NA,NA,8,adult
+22/06/2022 16:46,m_032,sm_007,pfas_001,99.3,"Arithmetic mean percent. The study provides the ΣPFSA = 9.2 +- 4.2 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",0.4,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,adult
+22/06/2022 16:47,m_033,sm_007,pfas_005,0-1.7,"""Where detection of the individual PFSAs or PFCAs was <60% in individual eggs or tissues, a min.emax. percent range is given.""",NA,NA,NA,NA,8,adult
+22/06/2022 16:48,m_034,sm_007,pfas_006,<0.05,"ng/g ww. Value under the method limits of quantitation (MLOQs). MLOQs for PFSAs and PFCAs were <0.1 and <0.05 ng/g ww, respectively.",NA,NA,NA,NA,8,adult
+22/06/2022 16:48,m_035,sm_007,pfas_007,<0.05,"ng/g ww. Value under the method limits of quantitation (MLOQs). MLOQs for PFSAs and PFCAs were <0.1 and <0.05 ng/g ww, respectively.",NA,NA,NA,NA,8,adult
+22/06/2022 16:50,m_036,sm_007,pfas_002,0-100,"""Where detection of the individual PFSAs or PFCAs was <60% in individual eggs or tissues, a min.emax. percent range is given.""",NA,NA,NA,NA,8,adult
+22/06/2022 16:52,m_037,sm_007,pfas_008,0-31.3,"""Where detection of the individual PFSAs or PFCAs was <60% in individual eggs or tissues, a min.emax. percent range is given.""",NA,NA,NA,NA,8,adult
+22/06/2022 16:52,m_038,sm_007,pfas_009,0-41.0,"""Where detection of the individual PFSAs or PFCAs was <60% in individual eggs or tissues, a min.emax. percent range is given.""",NA,NA,NA,NA,8,adult
+22/06/2022 16:53,m_039,sm_007,pfas_010,0-90.6,"""Where detection of the individual PFSAs or PFCAs was <60% in individual eggs or tissues, a min.emax. percent range is given.""",NA,NA,NA,NA,8,adult
+22/06/2022 16:54,m_040,sm_007,pfas_011,<0.05,"ng/g ww. Value under the method limits of quantitation (MLOQs). MLOQs for PFSAs and PFCAs were <0.1 and <0.05 ng/g ww, respectively.",NA,NA,NA,NA,8,adult
+23/06/2022 16:55,m_041,sm_007,pfas_012,<0.05,"ng/g ww. Value under the method limits of quantitation (MLOQs). MLOQs for PFSAs and PFCAs were <0.1 and <0.05 ng/g ww, respectively.",NA,NA,NA,NA,8,adult
+22/06/2022 16:55,m_042,sm_007,pfas_013,<0.05,"ng/g ww. Value under the method limits of quantitation (MLOQs). MLOQs for PFSAs and PFCAs were <0.1 and <0.05 ng/g ww, respectively.",NA,NA,NA,NA,8,adult
+22/06/2022 16:56,m_043,sm_007,pfas_014,<0.05,"ng/g ww. Value under the method limits of quantitation (MLOQs). MLOQs for PFSAs and PFCAs were <0.1 and <0.05 ng/g ww, respectively.",NA,NA,NA,NA,8,adult
+22/06/2022 16:58,m_044,sm_008,pfas_004,0-0.2,"""Where detection of the individual PFSAs or PFCAs was <60% in individual eggs or tissues, a min.emax. percent range is given.""",NA,NA,NA,NA,8,adult
+22/06/2022 17:00,m_045,sm_008,pfas_001,99.9,"Arithmetic mean percent. The study provides the ΣPFSA = 171 +- 83 (mean +- SE, ng/g ww) from which we can calculate the individual PFAS type concentration.",0.1,Standard error of the aritmetic mean percent.,NA,Not provided. Calculate using formula.,8,adult
+28/06/2022 13:40,m_046,sm_013,pfas_010,0.41,ng/g ww,0.028401878,Not provided. Calculate using formula.,0.11,NA,15,adult
+28/06/2022 13:42,m_047,sm_013,pfas_011,0.85,ng/g ww,0.18848519,Not provided. Calculate using formula.,0.73,NA,15,adult
+28/06/2022 13:45,m_048,sm_013,pfas_012,0.72,ng/g ww,0.061967734,Not provided. Calculate using formula.,0.24,NA,15,adult
+28/06/2022 13:45,m_049,sm_013,pfas_013,0.66,ng/g ww,0.129099445,Not provided. Calculate using formula.,0.5,NA,15,adult
+28/06/2022 13:46,m_050,sm_013,pfas_001,11.2,ng/g ww,1.843540073,Not provided. Calculate using formula.,7.14,NA,15,adult
+28/06/2022 13:47,m_051,sm_014,pfas_010,1.15,ng/g ww,0.105861545,Not provided. Calculate using formula.,0.41,NA,15,adult
+28/06/2022 13:48,m_052,sm_014,pfas_011,1.41,ng/g ww,0.18848519,Not provided. Calculate using formula.,0.73,NA,15,adult
+28/06/2022 13:49,m_053,sm_014,pfas_012,1.64,ng/g ww,0.167829278,Not provided. Calculate using formula.,0.65,NA,15,adult
+28/06/2022 13:49,m_054,sm_014,pfas_013,1.02,ng/g ww,0.162665301,Not provided. Calculate using formula.,0.63,NA,15,adult
+28/06/2022 13:51,m_055,sm_014,pfas_001,18.7,ng/g ww,2.969287232,Not provided. Calculate using formula.,11.5,NA,15,adult
+28/06/2022 13:55,m_056,sm_015,pfas_010,0.6,ng/g ww,0.085205634,Not provided. Calculate using formula.,0.33,NA,15,egg
+28/06/2022 13:55,m_057,sm_015,pfas_011,0.87,ng/g ww,0.271108834,Not provided. Calculate using formula.,1.05,NA,15,egg
+28/06/2022 13:56,m_058,sm_015,pfas_012,1.06,ng/g ww,0.178157234,Not provided. Calculate using formula.,0.69,NA,15,egg
+28/06/2022 13:57,m_059,sm_015,pfas_013,1,ng/g ww,0.222051045,Not provided. Calculate using formula.,0.86,NA,15,egg
+28/06/2022 13:57,m_060,sm_015,pfas_001,25.6,ng/g ww,10.92181304,Not provided. Calculate using formula.,42.3,NA,15,egg
+28/06/2022 13:59,m_061,sm_016,pfas_010,1,ng/g ww,0.154919334,Not provided. Calculate using formula.,0.6,NA,15,egg
+28/06/2022 14:00,m_062,sm_016,pfas_011,1.09,ng/g ww,0.379552368,Not provided. Calculate using formula.,1.47,NA,15,egg
+28/06/2022 14:01,m_063,sm_016,pfas_012,1.76,ng/g ww,0.320166623,Not provided. Calculate using formula.,1.24,NA,15,egg
+28/06/2022 14:01,m_064,sm_016,pfas_013,1.26,ng/g ww,0.389880324,Not provided. Calculate using formula.,1.51,NA,15,egg
+28/06/2022 14:02,m_065,sm_016,pfas_001,38.5,ng/g ww,8.31400425,Not provided. Calculate using formula.,32.2,NA,15,egg

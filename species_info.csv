@@ -1,0 +1,4 @@
+Timestamp,Species_ID,Species_common_name,Species_common_name_comment,Species_scientific_name,Species_scientific_name_comment,Seabird,Seabird_comment,Main_food_type,Main_food_type_comment,Body_mass_mean,Body_mass_comment,Body mass_sd,Clutch_size,Egg_mass,Egg_mass_comment,Body mass_sd
+21/06/2022 16:08:55,se_001,Yellow-legged gull,NA,Larus michahellis,NA,Yes,NA,fish and seafood,NA,882,g,43,3,89.9,g,7.8
+21/06/2022 16:15:05,se_002,Audouin's gull,NA,Larus audouinii,NA,Yes,NA,fish and seafood,NA,530,g,39,3,67.2,g,3.8
+22/06/2022 14:03:20,se_003,Herring gull,NA,Larus argentatus,Not provided. Searched and extracted elsewhere.,Yes,NA,NA,NA,946,g,15,NA,82,g,2
