@@ -9,3 +9,5 @@ This repository is for a pilot data check.
   - pfas_info.csv
   - cohort_info.csv
   - measurement.csv
+- "R" folder:
+  - Code.rdm markdown
