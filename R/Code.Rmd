@@ -5,26 +5,38 @@ date: '2022-06-28'
 output: html_document
 ---
 
-The code of the following chunck merges the various datasheets of my relational database to create a final wide whole datasheet.
+# The code of the following chunck merges the various datasheets of my relational database to create a final whole datasheet.
 
-```{r}
+```{r set up and loading files}
+#set up and packages loading
 library(readr)
 library(dplyr)
-study_details <- read_csv("Data/study_details.csv")
-species_info <- read_csv("Data/species_info.csv")
-pfas_info <- read_csv("Data/pfas_info.csv")
-cohort_info <- read_csv("Data/cohort_info.csv")
-sample_info <- read_csv("Data/sample_info.csv")
-measurement <- read_csv("Data/measurement.csv")
-combined <- inner_join(measurement, sample_info, by = "Sample_ID")
-combined <- inner_join(combined, cohort_info, by = "Cohort_ID")
-combined <- inner_join(combined, study_details, by = "Study_ID")
-combined <- inner_join(combined, pfas_info, by = "pfas_ID")
-combined <- inner_join(combined, species_info, by = "Species_ID")
-data_combined <- combined %>% 
+library(here)
+#dataframes loading
+study_details <- read_csv(here("Data", "study_details.csv"))
+species_info <- read_csv(here("Data", "species_info.csv"))
+pfas_info <- read_csv(here("Data", "pfas_info.csv"))
+cohort_info <- read_csv(here("Data", "cohort_info.csv"))
+sample_info <- read_csv(here("Data", "sample_info.csv"))
+measurement <- read_csv(here("Data", "measurement.csv"))
+#merging measurement dataframe and sample dataframe
+ms <- inner_join(measurement, sample_info, by = "Sample_ID")
+msc <- inner_join(ms, cohort_info, by = "Cohort_ID")
+mscs <- inner_join(msc, study_details, by = "Study_ID")
+mscsp <- inner_join(mscs, pfas_info, by = "pfas_ID")
+mscsps <- inner_join(mscsp, species_info, by = "Species_ID")
+data_combined <- mscsps %>% 
   select(-c(Timestamp.x, Timestamp.y, Timestamp.x.x, Timestamp.y.y, Timestamp.x.x.x, Timestamp.y.y.y))
 View(data_combined)
 ```
+# Clean the dataframe removing comment and statement columns
+```{r cleaning}
+data_combined <- data_combined %>% 
+  select(- ends_with("comment")) %>% 
+  select(- ends_with("statement"))
+```
+
+
 Create a new dataframe without not necessary data for MTR calculation:
 
 ```{r}
