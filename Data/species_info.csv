@@ -1,4 +1,6 @@
-Timestamp,Species_ID,Species_common_name,Species_common_name_comment,Species_scientific_name,Species_scientific_name_comment,Seabird,Seabird_comment,Main_food_type,Main_food_type_comment,Body_mass_mean,Body_mass_comment,Body_mass_sd,Clutch_size,Egg_mass,Egg_mass_comment,Egg_mass_sd
-21/06/2022 16:08,se_001,Yellow-legged gull,NA,Larus michahellis,NA,Yes,NA,fish and seafood,NA,882,g,43,3,89.9,g,7.8
-21/06/2022 16:15,se_002,Audouin's gull,NA,Larus audouinii,NA,Yes,NA,fish and seafood,NA,530,g,39,3,67.2,g,3.8
-22/06/2022 14:03,se_003,Herring gull,NA,Larus argentatus,Not provided. Searched and extracted elsewhere.,Yes,NA,NA,NA,946,g,15,NA,82,g,2
+Timestamp,species_ID,species_common_name,species_common_name_comment,species_scientific_name,species_scientific_name_comment,seabird,seabird_comment,main_food_type,main_food_type_comment,clutch_size,clutch_size_comment,species_comment
+21/06/2022 16:08:55,se_001,Yellow-legged gull,NA,Larus michahellis,NA,Yes,NA,Fish and seafood,"""These two gull species are fish and seafood feeders (Moreno et al., 2010; Sanpera et al., 2007; Navarro et al., 2010).""",3,NA,NA
+21/06/2022 16:15:05,se_002,Audouin's gull,NA,Larus audouinii,NA,Yes,NA,Fish and seafood,"""These two gull species are fish and seafood feeders (Moreno et al., 2010; Sanpera et al., 2007; Navarro et al., 2010).""",3,NA,NA
+22/06/2022 14:03:20,se_003,Herring gull,NA,Larus argentatus,NA,Yes,NA,Fish and seafood,NA,NA,Not provided. Extract from external source.,NA
+04/07/2022 11:47:04,se_004,European shag,NA,Phalacrocorax aristotelis,NA,Yes,NA,Fish. Sand-eels (family Ammodytidae) and one year old gadoid fish species,"From the article: ""Shags feed mainly on sand-eels (family Ammodytidae) and one year old gadoid fish species [...] the shag being a fish-eater [...]""",3 - 4,"From the article: ""The normal egg clutch size for the shag is three to four (Røv and Nygård, 2005).""",NA
+12/07/2022 11:53:15,se_005,Great skua,NA,Stercorarius skua,NA,Yes,NA,Fish,from https://app.bto.org/birdfacts/results/bob5690.htm,2,From https://app.bto.org/birdfacts/results/bob5690.htm,NA

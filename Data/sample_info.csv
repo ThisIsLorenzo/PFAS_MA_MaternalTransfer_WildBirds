@@ -1,4 +1,4 @@
-Timestamp,Sample_ID,Cohort_ID,Sample_type,Sample_type_comment
+Timestamp,sample_ID,cohort_ID,sample_type,sample_comment
 21/06/2022 16:36:40,sm_001,ch_001,blood,"""Blood was used to determine PFOS body burden in gulls as proposed in earlier studies [...] Blood (2–3 mL) was obtained by puncturing the brachial vein using a heparinized syringe and was placed in an eppendorf with 0.05 mL of heparin, transported refrigerated to the laboratory and kept at -20 °C until analysis."""
 21/06/2022 16:39:00,sm_002,ch_002,whole egg,"""PFOS was liquid–liquid extracted from homogenized wet samples using acetonitrile, adapted from the method of Fernández-Sanjuan et al. (2010) and Vicente et al. (2012). Briefly, about 1 g of egg (wet weight) was weighed in polypropylene tubes and the internal standard (m-PFOS) was added at a concentration of 100 ng/g, and incubated for 18 h at 4 °C."""
 21/06/2022 16:57:21,sm_003,ch_003,blood,"""Blood was used to determine PFOS body burden in gulls as proposed in earlier studies [...] Blood (2–3 mL) was obtained by puncturing the brachial vein using a heparinized syringe and was placed in an eppendorf with 0.05 mL of heparin, transported refrigerated to the laboratory and kept at -20 °C until analysis."""
@@ -15,3 +15,8 @@ Timestamp,Sample_ID,Cohort_ID,Sample_type,Sample_type_comment
 28/06/2022 13:23:42,sm_014,ch_008,blood,"""A blood sample of 5 mL was taken from the brachial wing vein using a syringe flushed with heparin"""
 28/06/2022 13:24:56,sm_015,ch_009,whole egg,"""In brief, individual whole blood samples and whole egg homogenate were used as matrices for all analyses."""
 28/06/2022 13:25:25,sm_016,ch_010,whole egg,"""In brief, individual whole blood samples and whole egg homogenate were used as matrices for all analyses."""
+04/07/2022 13:47:51,sm_017,ch_011,plasma,"""In plasma analysis 0.2 mL sample spiked with 2 ng of internal standard was extracted with 1.3 mL acetonitrile using the same extraction and clean-up procedure."""
+04/07/2022 13:48:26,sm_018,ch_012,liver,"""liver of half-grown-chicks (21 days)"""
+04/07/2022 13:49:41,sm_019,ch_013,whole egg,homogenised egg
+12/07/2022 12:10:53,sm_020,ch_014,whole egg,"""Frozen egg contents were homogenized, weighed, and freeze-dried to constant mass"""
+12/07/2022 12:13:27,sm_021,ch_015,plasma,"""Blood was centrifuged, and plasma and red blood cells were stored at -208C until analysis [...] The plasma and freeze-dried egg samples (0.2–0.3 g) were extracted by shaking with acetonitrile"""
