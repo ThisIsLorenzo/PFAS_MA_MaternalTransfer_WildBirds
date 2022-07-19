@@ -6,6 +6,7 @@ output: html_document
 editor_options: 
   chunk_output_type: inline
 ---
+# The following code deduplicates articles collected during the pilot search #2 and relative search strategy.
 ```{r - deduplication, include=FALSE}
 library(tidyverse)
 library(here)
