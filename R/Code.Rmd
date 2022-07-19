@@ -3,29 +3,59 @@ title: "Code"
 author: "LR"
 date: '2022-06-28'
 output: html_document
+editor_options: 
+  chunk_output_type: inline
 ---
-
-# The code of the following chunck merges the various datasheets of my relational database to create a final whole datasheet.
-
-```{r set up and loading files}
-#set up and packages loading
-library(readr)
-library(dplyr)
+```{r - deduplication, include=FALSE}
+library(tidyverse)
 library(here)
+library(synthesisr)
+library(tidystringdist)
+library(bibliometrix)
+dat <- read_csv(here("Data", "articles_pilot_2.csv"))
+dim(dat) #[1] 1244   19
+#Before deduplicating by title, tidy up and simplify titles
+#Removing all punctuation and extra white spaces
+dat$title2 <- str_replace_all(dat$title,"[:punct:]","") %>% str_replace_all(.,"[ ]+", " ") %>% tolower()
+#Remove exact title matches
+dat2 <- distinct(dat, title2, .keep_all = TRUE) #select records with unique titles (removes exact duplicates)
+dim(dat2) #[1] 860  20
+#Removing partial matches in titles
+duplicates_string <- find_duplicates(dat2$title2, method = "string_osa", to_lower = TRUE, rm_punctuation = TRUE, threshold = 7)
+#Manually review those titles to confirm they are duplicates
+manual_checks <- review_duplicates(dat2$title, duplicates_string)
+view(manual_checks)
+dat3 <- extract_unique_references(dat2, duplicates_string)
+dim(dat3) #[1] 827  21
+names(dat3)
+# Drop columns "title2" and "n_duplicates"
+dat4 <- select(dat3, -c(title2,n_duplicates))
+dim(dat4) #[1] 827  19
+# Save as a .csv file
+write_csv(dat4, "abstracts_for_screening_deduplicated.csv")
+# Save as a .bib file
+write_refs(dat4, format = "bib", file = "abstracts_for_screening_deduplicated.bib")
+```
+
+```{r - loading packages and data sets, include=FALSE}
+library(readr)
+library(tidyr)
+library(dplyr)
 library(ggplot2)
-#dataframes loading
 study_info <- read_csv(here("Data", "study_info.csv"))
 species_info <- read_csv(here("Data", "species_info.csv"))
 pfas_info <- read_csv(here("Data", "pfas_info.csv"))
 cohort_info <- read_csv(here("Data", "cohort_info.csv"))
 sample_info <- read_csv(here("Data", "sample_info.csv"))
-measurement <- read_csv(here("Data", "measurement.csv"))
-#merging measurement dataframe and sample dataframe
-ms <- inner_join(measurement, sample_info, by = "sample_ID")
-msc <- inner_join(ms, cohort_info, by = "cohort_ID")
-mscs <- inner_join(msc, study_info, by = "study_ID")
-mscsp <- inner_join(mscs, pfas_info, by = "pfas_ID")
-mscsps <- inner_join(mscsp, species_info, by = "species_ID")
+measurements <- read_csv(here("Data", "measurement.csv"))
+```
+
+```{r - join matching rows of different data sets}
+ms <- left_join(measurement, sample_info, by = "sample_ID")
+msc <- left_join(ms, cohort_info, by = "cohort_ID")
+mscs <- left_join(msc, study_info, by = "study_ID")
+mscsp <- left_join(mscs, pfas_info, by = "pfas_ID")
+mscsps <- left_join(mscsp, species_info, by = "species_ID")
 data_combined <- mscsps %>% 
   select(-c(Timestamp.x, Timestamp.y, Timestamp.x.x, Timestamp.y.y, Timestamp.x.x.x, Timestamp.y.y.y))
 View(data_combined)
@@ -36,6 +66,17 @@ data_combined <- data_combined %>%
   select(- ends_with("comment")) %>% 
   select(- ends_with("statement"))
 ```
+# Remove rows having NA values in mean_arithmetic, SD, or n columns
+```{r remove na}
+data_combined <- data_combined %>% drop_na(mean_arithmetic, SD, n)
+```
+
+```{r}
+p <- ggplot(data_combined)+
+  geom_boxplot(aes(x=group_info, lower=mean_arithmetic-SD, upper=mean_arithmetic+SD, middle=mean_arithmetic, ymin=mean_arithmetic-3*SD, ymax=mean_arithmetic+3*SD), stat = "identity")
+p
+```
+
 
 ## To calculate the overall [PFAS]adult / [PFAS]progeny ratio I need to devide the mean of egg for the mean of adult (group_info).
 ```{r}
@@ -50,20 +91,7 @@ data_combined <- data_combined %>%
 data_combined %>% group_by(species_scientific_name, species_common_name) %>% summarise()
 ```
 
-
-Create a new dataframe without not necessary data for MTR calculation:
-
-```{r}
-data_MTR <- data_combined %>%
-  select(Measurement_ID, Sample_ID, pfas_ID, Mean, SE, SD, N, group_info, Cohort_ID, Sample_type, Species_ID, Study_ID)
-```
-Remove S_002 because it doesn't have clear data yet
-
-```{r}
-data_MTR <- data_MTR %>%
-  filter(Study_ID != "S_002")
-```
-Overall meta-analytic mean calculation:
+## Overall meta-analytic mean calculation:
 ```{r}
 
 ```
