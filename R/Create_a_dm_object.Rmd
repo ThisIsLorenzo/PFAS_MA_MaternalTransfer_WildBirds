@@ -1,0 +1,81 @@
+---
+title: "Creating a dm object"
+author: "LR"
+date: "2022-07-26"
+output: html_document
+---
+
+We use dm to create a relational data model from our local data frames.
+The six tables that we are working with contain data extracted from the included studies:
+- **study_info**
+- **species_info**
+- **pfas_info**
+- **cohort_info**
+- **sample_info**
+- **measurements**
+
+```{r loading packages}
+library(readr)
+library(here)
+library(dm)
+```
+
+```{r loading data, include=FALSE}
+st <- study_info <- read_csv(here("Data", "study_info.csv"))
+sp <- species_info <- read_csv(here("Data", "species_info.csv"))
+pfas <- pfas_info <- read_csv(here("Data", "pfas_info.csv"))
+co <- cohort_info <- read_csv(here("Data", "cohort_info.csv"))
+sa <- sample_info <- read_csv(here("Data", "sample_info.csv"))
+me <- measurements <- read_csv(here("Data", "measurement.csv"))
+```
+
+```{r cleaning - removing unnecessary columns (i.e., "Timestamp" and comment columns)}
+st <- st %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+sp <- sp %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+pfas <- pfas %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+co <- co %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+sa <- sa %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+me <- me %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+```
+
+```{r adding tables, include=FALSE}
+data_dm_no_keys <- dm(st, sp, pfas, co, sa, me)
+data_dm_no_keys
+data_dm_no_keys$st
+data_dm_no_keys[c("st", "co")]
+```
+
+```{r defining primary keys}
+data_dm_only_pks <- data_dm_no_keys %>% 
+  dm_add_pk(table = st, columns = study_ID) %>% 
+  dm_add_pk(sp, species_ID) %>% 
+  dm_add_pk(pfas, pfas_ID) %>% 
+  dm_add_pk(co, cohort_ID) %>% 
+  dm_add_pk(sa, sample_ID) %>% 
+  dm_add_pk(me, measurement_ID)
+data_dm_only_pks
+```
+
+```{r defining foreign keys}
+data_dm_all_keys <- 
+  data_dm_only_pks %>% 
+  dm_add_fk(table = co, columns = study_ID, ref_table = st) %>% 
+  dm_add_fk(table = co, columns = species_ID, ref_table = sp) %>%
+  dm_add_fk(table = sa, columns = cohort_ID, ref_table = co) %>%
+  dm_add_fk(table = me, columns = sample_ID, ref_table = sa) %>%
+  dm_add_fk(table = me, columns = pfas_ID, ref_table = pfas)
+data_dm_all_keys
+```
+
+```{r visualization}
+data_dm_all_keys %>% 
+  dm_draw()
+```
+
+```{r integrity check}
+data_dm_all_keys %>% 
+  dm_examine_constraints()
+```
+
+
+
