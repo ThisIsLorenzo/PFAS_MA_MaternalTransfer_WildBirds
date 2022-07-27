@@ -77,7 +77,7 @@ data_dm_all_keys %>%
   dm_examine_constraints()
 ```
 
-```{r joining example - moving data between dm data tables}
+```{r joining example - moving data between dm data tables. Add a column.}
 # Add a column with study year of publication from the study_info table to the cohort_info table
 dm_joined <- 
   data_dm_all_keys %>% 
