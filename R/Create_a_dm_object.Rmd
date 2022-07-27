@@ -3,16 +3,15 @@ title: "Creating a dm object"
 author: "LR"
 date: "2022-07-26"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 We use dm to create a relational data model from our local data frames.
-The six tables that we are working with contain data extracted from the included studies:
-- **study_info**
-- **species_info**
-- **pfas_info**
-- **cohort_info**
-- **sample_info**
-- **measurements**
+The six tables that we are working with contain data extracted from the
+included studies: **study_info**, **species_info**, **pfas_info**,
+**cohort_info**, **sample_info**, **measurements**.
 
 ```{r loading packages}
 library(readr)
@@ -103,7 +102,48 @@ me_zoomed <-
 me_plus_n_info <- 
   me_zoomed %>% 
   mutate(n_morethan_ten = if_else(n > 10, "true", "false")) %>%
-  select(measurement_ID:n, n_morethan_ten, everything())
+  select(measurement_ID:n, n_morethan_ten, everything()) # in order to see our changes in the output we use `select()` for reordering the columns
 me_plus_n_info$n_morethan_ten
+# To update the original `dm` with a new `me` table we use `dm_update_zoomed()`
+updated_data_dm <- 
+  me_plus_n_info %>% 
+  dm_update_zoomed()
+updated_data_dm # from 56 to 57 columns
+dm_draw(updated_data_dm) # The schematic view of the data model remains unchanged
 ```
+
+Adding a summary of a table as a new table to a dm. Adding to dm a table
+with the mean pfas concentrations of each pfas type.
+
+```{r adding a summary table to dm}
+dm_with_summary <- 
+  updated_data_dm %>% 
+  dm_zoom_to(me) %>% 
+  group_by(pfas_ID) %>% 
+  summarise(mean = mean(mean_arithmetic, na.rm = TRUE)) %>% 
+  dm_insert_zoomed("pfas_mean")
+dm_draw(dm_with_summary)
+dm_with_summary$pfas_mean
+```
+
+```{r look at a single dm table}
+tbl(data_dm_all_keys, "sp")
+```
+
+
+Filtering data - we want to filter our data with only the species Larus argentatus.
+```{r filtering data}
+filtered_dm <- 
+  data_dm_all_keys %>% 
+  dm_filter(sp = (species_scientific_name == "Larus argentatus"))
+dm_nrow(filtered_dm) # sp 1 row, me 124 rows
+```
+
+
+
+
+
+
+
+
 
