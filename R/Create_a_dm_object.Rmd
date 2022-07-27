@@ -139,8 +139,8 @@ filtered_dm <-
 dm_nrow(filtered_dm) # sp 1 row, me 124 rows
 ```
 
-Assigning colors t ovisually group tables into families to reflect their logical grouping. 
-```{r}
+Assigning colors to visually group tables into families to reflect their logical grouping. 
+```{r coloured dm visualization}
 # Inspect the available colors
 dm_get_available_colors()
 data_dm_colored <- 
@@ -168,6 +168,20 @@ data_dm_colored %>%
   write("dm_keys_and_colors")
 ```
 
+Accessing tables of a dm object
+```{r accessing tables}
+data_dm_all_keys[["sp"]]
+```
+To get an overview over all tables with primary keys, use dm_get_all_pks()
+```{r pk overview}
+dm_get_all_pks(data_dm_all_keys)
+```
+Remove a primary key
+```{r}
+#(data_dm_all_keys, co) %>%
+  #dm_has_pk(co)
+#> [1] FALSE
+```
 
 
 
