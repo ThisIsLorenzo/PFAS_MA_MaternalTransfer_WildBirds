@@ -18,6 +18,7 @@ The six tables that we are working with contain data extracted from the included
 library(readr)
 library(here)
 library(dm)
+library(dplyr)
 ```
 
 ```{r loading data, include=FALSE}
@@ -93,4 +94,16 @@ dm_joined <-
 dm_joined
 ```
 
+Zooming and manipulating tables
+
+```{r adding a new column to an existing table - n > or < 10}
+me_zoomed <- 
+  data_dm_all_keys %>% 
+  dm_zoom_to(me)
+me_plus_n_info <- 
+  me_zoomed %>% 
+  mutate(n_morethan_ten = if_else(n > 10, "true", "false")) %>%
+  select(measurement_ID:n, n_morethan_ten, everything())
+me_plus_n_info$n_morethan_ten
+```
 
