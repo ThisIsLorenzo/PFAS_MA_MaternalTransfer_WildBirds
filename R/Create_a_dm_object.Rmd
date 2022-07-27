@@ -126,7 +126,6 @@ dm_draw(dm_with_summary)
 dm_with_summary$pfas_mean
 ```
 
-<<<<<<< HEAD
 ```{r look at a single dm table}
 tbl(data_dm_all_keys, "sp")
 ```
@@ -140,7 +139,34 @@ filtered_dm <-
 dm_nrow(filtered_dm) # sp 1 row, me 124 rows
 ```
 
-
+Assigning colors t ovisually group tables into families to reflect their logical grouping. 
+```{r}
+# Inspect the available colors
+dm_get_available_colors()
+data_dm_colored <- 
+  data_dm_all_keys %>% 
+  dm_set_colors(
+    slateblue = st,
+    brown1 = sp,
+    coral1 = pfas,
+    cyan1 = co,
+    moccasin = sa,
+    thistle = me
+  )
+dm_draw(data_dm_colored)
+# Visualize only titles
+data_dm_colored %>% 
+  dm_draw(view_type = "title_only")
+# Visualize only some of the tables
+data_dm_colored %>%
+  dm_select_tbl(sp, st, co) %>% 
+  dm_draw()
+# Exporting a drawing to svg
+data_dm_colored %>% 
+  dm_draw() %>% 
+  DiagrammeRsvg::export_svg() %>% 
+  write("dm_keys_and_colors")
+```
 
 
 
