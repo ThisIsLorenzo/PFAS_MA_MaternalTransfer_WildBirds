@@ -79,15 +79,18 @@ data_dm_all_keys %>%
 
 ```{r joining example - moving data between dm data tables. Add a column.}
 # Add a column with study year of publication from the study_info table to the cohort_info table
-dm_joined <- 
+dm_co_plus_year <- 
   data_dm_all_keys %>% 
   dm_select(st, study_ID | year_publication) %>% 
   dm_flatten_to_tbl(co, st, .join = left_join)
-dm_joined
+dm_co_plus_year
 ```
 
 ```{r merging all tables into one big table}
-data_dm_all_keys
+dm_joined <- 
+  data_dm_all_keys %>% 
+  dm_flatten_to_tbl(.start = me, .recursive = TRUE)
+dm_joined
 ```
 
 
