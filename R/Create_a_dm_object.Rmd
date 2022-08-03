@@ -122,8 +122,8 @@ dm_with_summary <-
   group_by(pfas_ID) %>% 
   summarise(mean = mean(mean_arithmetic, na.rm = TRUE)) %>% 
   dm_insert_zoomed("pfas_mean")
-dm_draw(dm_with_summary)
 dm_with_summary$pfas_mean
+dm_draw(dm_with_summary)
 ```
 
 ```{r look at a single dm table}
@@ -183,8 +183,27 @@ Remove a primary key
 #> [1] FALSE
 ```
 
+-------------------------------------------------------
+-------------------------------------------------------
+-------------------------------------------------------
+-------------------------------------------------------
+Let's try some code which might be usefull in the future.
 
+I want to know what species has the highest mean concentration of PFOA in eggs.
+In the measurements spreadsheet I want information on the species. To do so I have to bring in it the sample and cohort IDs first. 
+```{r move species info in me table}
+me_plus_sa_info <- 
+  data_dm_all_keys$me %>% 
+  left_join(data_dm_all_keys$sa)
+me_plus_co_info <- 
+  me_plus_sa_info %>% 
+  left_join(data_dm_all_keys$co)
+me_plus_sp_info <- 
+  me_plus_co_info %>% 
+  left_join(data_dm_all_keys$sp)
+```
 
-
-
-
+```{r}
+me_plus_sp_info %>% 
+select()
+```
