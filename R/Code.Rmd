@@ -9,21 +9,84 @@ editor_options:
 # Porpuse: This .Rmd document provides the code we used for data processing and data visualization.
 
 ## Data processing workflow.
-```{r - loading packages and data sets, include=FALSE}
+
+We use dm to create a relational data model from our local data frames.
+The six tables that we are working with contain data extracted from the
+included studies: **study_info**, **species_info**, **pfas_info**,
+**cohort_info**, **sample_info**, **measurements**.
+
+```{r loading packages}
 library(readr)
-library(tidyr)
+library(here)
+library(dm)
 library(dplyr)
-library(ggplot2)
-study_info <- read_csv(here("Data", "study_info.csv"))
-species_info <- read_csv(here("Data", "species_info.csv"))
-pfas_info <- read_csv(here("Data", "pfas_info.csv"))
-cohort_info <- read_csv(here("Data", "cohort_info.csv"))
-sample_info <- read_csv(here("Data", "sample_info.csv"))
-measurements <- read_csv(here("Data", "measurement.csv"))
 ```
 
+```{r loading data, include=FALSE}
+st <- read_csv(here("Data", "study_info.csv"))
+sp <- read_csv(here("Data", "species_info.csv"))
+pfas <- read_csv(here("Data", "pfas_info.csv"))
+co <- read_csv(here("Data", "cohort_info.csv"))
+sa <- read_csv(here("Data", "sample_info.csv"))
+me <- read_csv(here("Data", "measurement_info.csv"))
+```
+
+```{r cleaning - removing unnecessary columns (i.e., "Timestamp" and comment columns)}
+st <- st %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+sp <- sp %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+pfas <- pfas %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+co <- co %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+sa <- sa %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+me <- me %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+```
+
+```{r adding tables, include=FALSE}
+data_dm_no_keys <- dm(st, sp, pfas, co, sa, me)
+data_dm_no_keys
+data_dm_no_keys$st
+data_dm_no_keys[c("st", "co")]
+```
+```{r defining primary keys}
+data_dm_only_pks <- data_dm_no_keys %>% 
+  dm_add_pk(table = st, columns = study_ID) %>% 
+  dm_add_pk(sp, species_ID) %>% 
+  dm_add_pk(pfas, pfas_ID) %>% 
+  dm_add_pk(co, cohort_ID) %>% 
+  dm_add_pk(sa, sample_ID)
+data_dm_only_pks
+```
+```{r defining foreign keys}
+data_dm_all_keys <- 
+  data_dm_only_pks %>% 
+  dm_add_fk(table = co, columns = study_ID, ref_table = st) %>% 
+  dm_add_fk(table = co, columns = species_ID, ref_table = sp) %>%
+  dm_add_fk(table = sa, columns = cohort_ID, ref_table = co) %>%
+  dm_add_fk(table = me, columns = sample_ID, ref_table = sa) %>%
+  dm_add_fk(table = me, columns = pfas_ID, ref_table = pfas)
+data_dm_all_keys
+```
+```{r visualization}
+data_dm_all_keys %>% 
+  dm_draw()
+```
+```{r integrity check}
+data_dm_all_keys %>% 
+  dm_examine_constraints()
+```
+
+```{r merging all tables into one big table}
+dm_joined <- 
+  data_dm_all_keys %>% 
+  dm_flatten_to_tbl(.start = me, .recursive = TRUE)
+dm_joined
+```
+
+
+
+
+
 ```{r - join matching rows of different data sets}
-ms <- left_join(measurement, sample_info, by = "sample_ID")
+ms <- left_join(measurement_info, sample_info, by = "sample_ID")
 msc <- left_join(ms, cohort_info, by = "cohort_ID")
 mscs <- left_join(msc, study_info, by = "study_ID")
 mscsp <- left_join(mscs, pfas_info, by = "pfas_ID")
