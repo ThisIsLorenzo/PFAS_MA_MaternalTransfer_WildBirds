@@ -15,8 +15,11 @@ The six tables that we are working with contain data extracted from the
 included studies. The six tables are named as follow: **study_info**, **species_info**, **pfas_info**,
 **cohort_info**, **sample_info**, **measurements**.
 
-```{r loading packages}
+```{r loading packages, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE}
+library(tidyverse)
 library(readr)
+library(ape, curl)
+library(rotl)
 library(here)
 library(dm)
 library(dplyr)
@@ -117,7 +120,26 @@ var_lnRR_ind <- function(Mc, Nc, Me, Ne, aCV2c, aCV2e){
   
   var_lnRR
 }
+# Mc: Concentration of PFAS of the raw (control) sample
+# Nc: Sample size of the raw (control) sample
+# Me: Concentration of PFAS of the cooked (experimental) sample
+# Ne: Sample size of the cooked (experimental) sample 
+# aCV2c: Mean coefficient of variation of the raw (control) samples
+# aCV2e: Mean coefficient of variation of the cooked (experimental) samples
 ```
+
+### Generating the Phylogenetic Tree
+
+```{r get list of species, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE}
+myspecies <- as.character(unique(sp$species_scientific_name)) #get list of species
+str_sort(myspecies) #visual check
+length(myspecies) #16 species
+length(unique(myspecies)) #16 unique species names
+```
+
+
+
+
 
 
 ```{r - join matching rows of different data sets}
