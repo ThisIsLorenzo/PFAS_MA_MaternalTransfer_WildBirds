@@ -10,9 +10,9 @@ editor_options:
 
 ## Data processing workflow.
 
-We use dm to create a relational data model from our local data frames.
+We use a dm object to create a relational data model from our local data tables.
 The six tables that we are working with contain data extracted from the
-included studies: **study_info**, **species_info**, **pfas_info**,
+included studies. The six tables are named as follow: **study_info**, **species_info**, **pfas_info**,
 **cohort_info**, **sample_info**, **measurements**.
 
 ```{r loading packages}
@@ -20,6 +20,7 @@ library(readr)
 library(here)
 library(dm)
 library(dplyr)
+library(metafor)
 ```
 
 ```{r loading data, include=FALSE}
@@ -32,29 +33,46 @@ me <- read_csv(here("Data", "measurement_info.csv"))
 ```
 
 ```{r cleaning - removing unnecessary columns (i.e., "Timestamp" and comment columns)}
-st <- st %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
-sp <- sp %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
-pfas <- pfas %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
-co <- co %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
-sa <- sa %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
-me <- me %>% select(-("Timestamp")) %>% select(-(ends_with("comment")))
+st <- st %>% 
+  select(-("Timestamp")) %>%
+  select(-(ends_with("comment")))
+sp <- sp %>% 
+  select(-("Timestamp")) %>%
+  select(-(ends_with("comment")))
+pfas <- pfas %>% 
+  select(-("Timestamp")) %>% 
+  select(-(ends_with("comment")))
+co <- co %>% 
+  select(-("Timestamp")) %>%
+  select(-(ends_with("comment")))
+sa <- sa %>% 
+  select(-("Timestamp")) %>% 
+  select(-(ends_with("comment")))
+me <- me %>%
+  select(-("Timestamp")) %>% 
+  select(-(ends_with("comment")))
 ```
 
-```{r adding tables, include=FALSE}
+### dm object - relational database
+
+```{r adding tables to the dm object, include=FALSE}
 data_dm_no_keys <- dm(st, sp, pfas, co, sa, me)
 data_dm_no_keys
 data_dm_no_keys$st
 data_dm_no_keys[c("st", "co")]
 ```
+
 ```{r defining primary keys}
 data_dm_only_pks <- data_dm_no_keys %>% 
   dm_add_pk(table = st, columns = study_ID) %>% 
   dm_add_pk(sp, species_ID) %>% 
   dm_add_pk(pfas, pfas_ID) %>% 
   dm_add_pk(co, cohort_ID) %>% 
-  dm_add_pk(sa, sample_ID)
+  dm_add_pk(sa, sample_ID) %>% 
+  dm_add_pk(me, measurement_ID)
 data_dm_only_pks
 ```
+
 ```{r defining foreign keys}
 data_dm_all_keys <- 
   data_dm_only_pks %>% 
@@ -81,8 +99,25 @@ dm_joined <-
 dm_joined
 ```
 
+### Effect size
+The `lnRR_func` function is here used to calculate a log response ratio (lnRR) adjusted for small sample sizes. In addition, this formula accounts for correlated samples. 
+For more details, see *Doncaster and Spake (2018) Correction for bias in meta-analysis of little-replicated studies. Methods in Ecology and Evolution; 9:634-644*
 
-
+```{r function to calculate effect size}
+# Custom function to calculate the lnRR 
+lnRR_func <- function(Mc, Nc, Me, Ne, aCV2c, aCV2e){
+  lnRR <- log(Me/Mc) + 
+        0.5 * ((aCV2e/Ne) - (aCV2c/Nc))	
+  lnRR
+}
+# Custom function to calculate the lnRR's sampling variance from independent designs (rTC = 0)
+var_lnRR_ind <- function(Mc, Nc, Me, Ne, aCV2c, aCV2e){
+  
+  var_lnRR <- (aCV2c/Nc) + (aCV2e/Ne) 
+  
+  var_lnRR
+}
+```
 
 
 ```{r - join matching rows of different data sets}
