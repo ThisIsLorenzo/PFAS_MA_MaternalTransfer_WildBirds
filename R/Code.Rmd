@@ -136,6 +136,48 @@ str_sort(myspecies) #visual check
 length(myspecies) #16 species
 length(unique(myspecies)) #16 unique species names
 ```
+Using *rotl* package to retrieve synthetic species tree from Open Tree of Life
+
+Rotl is an R package (https://peerj.com/preprints/1471/) allowing access to synthetic phylogenetic tree available at Open Tree of Life database (https://opentreeoflife.org/). 
+
+```{r rotl find species, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE, }
+taxa <- tnrs_match_names(names = myspecies)
+dim(taxa) #16 specias - all matched
+table(taxa$approximate_match) #approximate matches
+taxa[taxa$approximate_match==TRUE, ] ##ctenopharyngodon idell and Mylopharyngodon piceus are two species of carp from China, the other approximation is ok
+```
+Get the initial tree.  
+
+```{r rotl species tree, warning = FALSE, results=FALSE}
+tree <- tol_induced_subtree(ott_ids = taxa[["ott_id"]], 
+                            label_format = "name")  
+plot(tree, cex=.6,
+     label.offset =.1,
+     no.margin = TRUE)
+```
+Check matching species and labels.
+
+```{r re-check tree labels}
+taxa2 <- taxa
+tree2 <- tree
+
+#check overlap and differences with taxa list
+intersect(tree2$tip.label, taxa2$unique_name) #0
+setdiff(tree2$tip.label, taxa2$unique_name) #16
+setdiff(taxa2$unique_name, tree2$tip.label) #16
+
+#check if the tree is really binary 
+is.binary.tree(tree2) #TRUE
+```
+Save tree
+
+```{r save final tree}
+```
+
+
+
+
+
 
 
 
