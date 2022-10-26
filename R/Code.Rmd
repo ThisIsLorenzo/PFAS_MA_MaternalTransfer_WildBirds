@@ -102,6 +102,65 @@ dm_joined <-
 dm_joined
 ```
 
+
+
+
+I want to create a table with only the variables I need to create effect size IDs
+```{r moving columns among dm objects}
+me1 <- 
+  data_dm_all_keys %>% 
+  dm_select(me, measurement_ID | group_info | sample_ID | pfas_ID | mean_arithmetic | SD | n) %>% 
+  dm_select(co, cohort_ID | species_ID | study_ID | sampling_year | sampling_location) %>% 
+  dm_select(pfas, pfas_ID) %>% 
+  dm_select(sp, species_ID) %>% 
+  dm_select(st, study_ID) %>% 
+  dm_flatten_to_tbl(.start = me, .recursive = TRUE, .join = left_join)
+
+colnames(me1)
+```
+
+Now I want to create a new column called "es_ID" which matches all the pairs of measurement I will use in the escalc() function
+```{r}
+# First, let's work on S_001
+me2 <- 
+  me1 %>% 
+  dplyr::filter(study_ID == "S_001" | study_ID == "S_003")
+
+me3 <- 
+  me2 %>% 
+  dplyr::group_by(study_ID,
+                  pfas_ID , 
+                  species_ID,
+                  sampling_year, 
+                  sampling_location) %>% 
+  dplyr::mutate( es_ID = ifelse())
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### Effect size
 The `lnRR_func` function is here used to calculate a log response ratio (lnRR) adjusted for small sample sizes. In addition, this formula accounts for correlated samples. 
 For more details, see *Doncaster and Spake (2018) Correction for bias in meta-analysis of little-replicated studies. Methods in Ecology and Evolution; 9:634-644*
@@ -151,7 +210,8 @@ Get the initial tree.
 ```{r rotl species tree, warning = FALSE, results=FALSE}
 tree <- tol_induced_subtree(ott_ids = taxa[["ott_id"]], 
                             label_format = "name")  
-plot(tree, cex=.6,
+plot(tree,
+     cex= 1, #font size
      label.offset =.1,
      no.margin = TRUE)
 ```
@@ -174,62 +234,39 @@ Save tree
 ```{r save final tree}
 ```
 
+### Work on the datatables
 
+```{r adding a table containing studies lnRRs to the dm}
+lnRR <- 
+  dm_joined %>% 
+  group_by(study_ID) %>% 
+  dplyr::summarise()
+  
 
-
-
-
-
-
-
-
-
-```{r - join matching rows of different data sets}
-ms <- left_join(measurement_info, sample_info, by = "sample_ID")
-msc <- left_join(ms, cohort_info, by = "cohort_ID")
-mscs <- left_join(msc, study_info, by = "study_ID")
-mscsp <- left_join(mscs, pfas_info, by = "pfas_ID")
-mscsps <- left_join(mscsp, species_info, by = "species_ID")
-data_combined <- mscsps %>% 
-  select(-c(Timestamp.x, Timestamp.y, Timestamp.x.x, Timestamp.y.y, Timestamp.x.x.x, Timestamp.y.y.y))
-View(data_combined)
-```
-# Clean the dataframe removing comment and statement columns
-```{r cleaning}
-data_combined <- data_combined %>% 
-  select(- ends_with("comment")) %>% 
-  select(- ends_with("statement"))
-```
-# Remove rows having NA values in mean_arithmetic, SD, or n columns
-```{r remove na}
-data_combined <- data_combined %>% drop_na(mean_arithmetic, SD, n)
-```
-
-```{r}
-p <- ggplot(data_combined)+
-  geom_boxplot(aes(x=group_info, lower=mean_arithmetic-SD, upper=mean_arithmetic+SD, middle=mean_arithmetic, ymin=mean_arithmetic-3*SD, ymax=mean_arithmetic+3*SD), stat = "identity")
-p
+dm_with_summary$pfas_mean
+dm_draw(dm_with_summary)
 ```
 
 
-## To calculate the overall [PFAS]adult / [PFAS]progeny ratio I need to devide the mean of egg for the mean of adult (group_info).
-```{r}
-#progeny <- filter(data_combined, group_info == "egg" | group_info == "chick")
-#adult <- filter(data_combined, group_info == "adult")
-#ggplot(data_combined) %>% 
-  #geom_point(aes(x=group_by() mean_arithmetic, y=adult$mean_arithmetic))
+
+
+
+
+
+
+## Calculating lnRR and Variance
+``` {r Calculating lnRR and Variance}
+dat1adult <- filter(dat1, group_info == "adult")
+dat1progeny <- filter(dat1, group_info == "egg")
+lnRR <-
+  dm_joined %>%
+  dplyr::group_by(study_ID, group_info) %>% 
+  escalc(measure = "ROM", n1i = dm_joined$n, n2i = dm_joined$n, m1i = dm_joined$mean_arithmetic, m2i = dm_joined$mean_arithmetic, sd1i = dm_joined$SD, sd2i = dm_joined$SD)
+#joining the calculated lnRR and (yi) and variance (vi) into a new dataframe
+dat2 <- bind_cols(dat1progeny, lnRR)
+str(dat2)
 ```
-
-## Summary of scientific and common names of the species
-```{r}
-data_combined %>% group_by(species_scientific_name, species_common_name) %>% summarise()
+```{r create the forest plot}
+forest(dat2$yi, dat2$vi)
 ```
-
-## Overall meta-analytic mean calculation:
-```{r}
-#TODO
-
-
-```
-
 
