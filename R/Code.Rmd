@@ -110,7 +110,7 @@ I want to create a table with only the variables I need to create effect size ID
 me1 <- 
   data_dm_all_keys %>% 
   dm_select(me, measurement_ID | group_info | sample_ID | pfas_ID | mean_arithmetic | SD | n) %>% 
-  dm_select(co, cohort_ID | species_ID | study_ID | sampling_year | sampling_location) %>% 
+  dm_select(co, cohort_ID | species_ID | study_ID | sampling_location | life_stage) %>% 
   dm_select(pfas, pfas_ID) %>% 
   dm_select(sp, species_ID) %>% 
   dm_select(st, study_ID) %>% 
