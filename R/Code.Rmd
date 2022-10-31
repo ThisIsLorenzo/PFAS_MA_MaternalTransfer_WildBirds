@@ -119,21 +119,23 @@ me1 <-
 colnames(me1)
 ```
 
-Now I want to create a new column called "es_ID" which matches all the pairs of measurement I will use in the escalc() function
+Now I want to create a new column called "es_ID" which matches all the pairs of measurement I will use in the escalc() function.
+Study, PFAS type, species, and sampling location must be the same, so I group by them.
+The group (i.e., group_info) must be different
 ```{r}
-# First, let's work on S_001
+# First, let's work on only two studies:
 me2 <- 
   me1 %>% 
   dplyr::filter(study_ID == "S_001" | study_ID == "S_003")
 
+#group by
 me3 <- 
   me2 %>% 
   dplyr::group_by(study_ID,
                   pfas_ID , 
                   species_ID,
-                  sampling_year, 
-                  sampling_location) %>% 
-  dplyr::mutate( es_ID = ifelse())
+                  sampling_location)
+
 
 
 ```
