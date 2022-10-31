@@ -52,7 +52,11 @@ sa <- sa %>%
   select(-("Timestamp")) %>% 
   select(-(ends_with("comment")))
 me <- me %>%
+<<<<<<< HEAD
   #select(-("Timestamp")) %>% 
+=======
+ # select(-("Timestamp")) %>% 
+>>>>>>> ef2660e7b011ffc4fc1d036dad5e937ae5e72292
   select(-(ends_with("comment")))
 ```
 
@@ -122,21 +126,109 @@ colnames(me1)
 Now I want to create a new column called "es_ID" which matches all the pairs of measurement I will use in the escalc() function.
 Study, PFAS type, species, and sampling location must be the same, so I group by them.
 The group (i.e., group_info) must be different
+
 ```{r}
 # First, let's work on only two studies:
 me2 <- 
   me1 %>% 
   dplyr::filter(study_ID == "S_001" | study_ID == "S_003")
+# First, let's work on S_001
+#me2 <- 
+#  me1 %>% 
+#  dplyr::filter(study_ID == "S_001" | study_ID == "S_003")
 
 #group by
 me3 <- 
-  me2 %>% 
+  me1 %>% 
   dplyr::group_by(study_ID,
                   pfas_ID , 
                   species_ID,
-                  sampling_location)
+                  #sampling_year, 
+                  sampling_location) ## dplyr::mutate( es_ID = ifelse())
 
 
+# TODO 
+
+tdat <- data.frame(me1[me1$study_ID == "S_003" & me1$pfas_ID == "pfas_001", ])
+
+
+adult <- tdat[tdat$group_info == "adult", 1]
+progeny <-tdat[tdat$group_info == "progeny", 1]
+
+ids <- expand.grid(adult_id = adult, progeny_id = progeny)
+
+adult_id <- ids[[1]]
+progeny_id <- ids[[2]]
+
+pos_adult <- match(adult_id, tdat$measurement_ID)
+adult_dat <- tdat[pos_adult, ]
+
+pos_progeny <- match(progeny_id, tdat$measurement_ID)
+progeny_dat <- tdat[pos_progeny, ]
+
+#ndat<-as.data.frame(cbind(adult_dat, chick_dat))
+
+ndat <- data.frame(measurement_ID_A = adult_dat[["measurement_ID"]],
+           measurement_ID_C = progeny_dat[[ "measurement_ID"]],
+           mean_arithmetic_A = adult_dat[["mean_arithmetic"]],
+           mean_arithmetic_C =  progeny_dat[[ "mean_arithmetic"]]
+             )
+
+head(ndat)
+
+# function
+
+wide_table <- function(dat){
+
+adult <- tdat[tdat$group_info == "adult", 1]
+progeny <-tdat[tdat$group_info == "progeny", 1]
+
+ids <- expand.grid(adult_id = adult, progeny_id = progeny)
+
+adult_id <- ids[[1]]
+progeny_id <- ids[[2]]
+
+pos_adult <- match(adult_id, tdat$measurement_ID)
+adult_dat <- tdat[pos_adult, ]
+
+pos_progeny <- match(progeny_id, tdat$measurement_ID)
+progeny_dat <- tdat[pos_progeny, ]
+
+#ndat<-as.data.frame(cbind(adult_dat, chick_dat))
+
+ndat <- data.frame(measurement_ID_A = adult_dat[["measurement_ID"]],
+           measurement_ID_P = progeny_dat[[ "measurement_ID"]],
+           mean_arithmetic_A = adult_dat[["mean_arithmetic"]],
+           mean_arithmetic_P =  progeny_dat[[ "mean_arithmetic"]],
+           SD_A = adult_dat[["SD"]],
+           SD_P = progeny_dat[["SD"]],
+           n_A = adult_dat[["n"]],
+           n_P = progeny_dat[["n"]],
+           life_stage_A = adult_dat[["life_stage"]],
+           life_stage_P = progeny_dat[["life_stage"]],
+           study_ID_A = adult_dat[["study_ID"]],
+           study_ID_P = progeny_dat[["study_ID"]],
+           species_ID_A = adult_dat[["species_ID"]],
+           species_ID_P = progeny_dat[["species_ID"]],
+           sample_ID_A = adult_dat[["sample_ID"]],
+           sample_ID_P = progeny_dat[["sample_ID"]],
+           cohort_ID_A = adult_dat[["cohort_ID"]],
+           cohort_ID_P = progeny_dat[["cohort_ID"]],
+           sample_type_A = adult_dat[["sample_type"]],
+           sample_type_P = progeny_dat[["sample_type"]],
+           sampling_location_A = adult_dat[["sampling_location"]],
+           sampling_location_P = progeny_dat[["sampling_location"]]
+             )
+ndat
+
+}
+
+
+res <- wide_table(tdat)
+
+test.list <- list(tdat, tdat)
+
+ntable <- map_dfr(test.list, wide_table)
 
 ```
 
