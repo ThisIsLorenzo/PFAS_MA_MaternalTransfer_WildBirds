@@ -52,7 +52,7 @@ sa <- sa %>%
   select(-("Timestamp")) %>% 
   select(-(ends_with("comment")))
 me <- me %>%
-  select(-("Timestamp")) %>% 
+  #select(-("Timestamp")) %>% 
   select(-(ends_with("comment")))
 ```
 
