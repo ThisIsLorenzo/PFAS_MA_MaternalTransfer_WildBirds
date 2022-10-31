@@ -52,7 +52,7 @@ sa <- sa %>%
   select(-("Timestamp")) %>% 
   select(-(ends_with("comment")))
 me <- me %>%
-  select(-("Timestamp")) %>% 
+ # select(-("Timestamp")) %>% 
   select(-(ends_with("comment")))
 ```
 
@@ -122,19 +122,83 @@ colnames(me1)
 Now I want to create a new column called "es_ID" which matches all the pairs of measurement I will use in the escalc() function
 ```{r}
 # First, let's work on S_001
-me2 <- 
-  me1 %>% 
-  dplyr::filter(study_ID == "S_001" | study_ID == "S_003")
+#me2 <- 
+#  me1 %>% 
+#  dplyr::filter(study_ID == "S_001" | study_ID == "S_003")
 
 me3 <- 
-  me2 %>% 
+  me1 %>% 
   dplyr::group_by(study_ID,
                   pfas_ID , 
                   species_ID,
-                  sampling_year, 
-                  sampling_location) %>% 
-  dplyr::mutate( es_ID = ifelse())
+                  #sampling_year, 
+                  sampling_location) ## dplyr::mutate( es_ID = ifelse())
 
+
+# TODO 
+
+tdat <- data.frame(me1[me1$study_ID == "S_003" & me1$pfas_ID == "pfas_001", ])
+
+
+adult <- tdat[tdat$group_info == "adult", 1]
+chick <-tdat[tdat$group_info == "progeny", 1]
+
+ids <- expand.grid(adult_id = adult, chick_id = chick)
+
+adult_id <- ids[[1]]
+check_id <- ids[[2]]
+
+pos_adult <- match(adult_id, tdat$measurement_ID)
+adult_dat <- tdat[pos_adult, ]
+
+pos_chick <- match(check_id, tdat$measurement_ID)
+chick_dat <- tdat[pos_chick, ]
+
+#ndat<-as.data.frame(cbind(adult_dat, chick_dat))
+
+ndat <- data.frame(measurement_ID_A = adult_dat[["measurement_ID"]],
+           measurement_ID_C = chick_dat[[ "measurement_ID"]],
+           mean_arithmetic_A = adult_dat[["mean_arithmetic"]],
+           mean_arithmetic_C =  chick_dat[[ "mean_arithmetic"]]
+             )
+
+head(ndat)
+
+# function
+
+wide_table <- function(dat){
+
+  adult <- dat[dat$group_info == "adult", 1]
+chick <-dat[dat$group_info == "progeny", 1]
+
+ids <- expand.grid(adult_id = adult, chick_id = chick)
+
+adult_id <- ids[[1]]
+check_id <- ids[[2]]
+
+pos_adult <- match(adult_id, dat$measurement_ID)
+adult_dat <- dat[pos_adult, ]
+
+pos_chick <- match(check_id, dat$measurement_ID)
+chick_dat <- dat[pos_chick, ]
+
+#ndat<-as.data.frame(cbind(adult_dat, chick_dat))
+
+ndat <- data.frame(measurement_ID_A = adult_dat[["measurement_ID"]],
+           measurement_ID_C = chick_dat[[ "measurement_ID"]],
+           mean_arithmetic_A = adult_dat[["mean_arithmetic"]],
+           mean_arithmetic_C =  chick_dat[[ "mean_arithmetic"]]
+             )
+ndat
+
+}
+
+
+res <- wide_table(tdat)
+
+test.list <- list(tdat, tdat, tdat, tdat)
+
+ntable <- map_dfr(test.list, wide_table)
 
 ```
 
