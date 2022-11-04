@@ -52,11 +52,6 @@ sa <- sa %>%
   select(-("Timestamp")) %>% 
   select(-(ends_with("comment")))
 me <- me %>%
-<<<<<<< HEAD
-  #select(-("Timestamp")) %>% 
-=======
- # select(-("Timestamp")) %>% 
->>>>>>> ef2660e7b011ffc4fc1d036dad5e937ae5e72292
   select(-(ends_with("comment")))
 ```
 
@@ -138,9 +133,10 @@ me2 <-
 #  dplyr::filter(study_ID == "S_001" | study_ID == "S_003")
 
 #group by
-me3 <- 
+
+list_dat <- 
   me1 %>% 
-  dplyr::group_by(study_ID,
+  dplyr::group_split(study_ID,
                   pfas_ID , 
                   species_ID,
                   #sampling_year, 
@@ -149,50 +145,52 @@ me3 <-
 
 # TODO 
 
-tdat <- data.frame(me1[me1$study_ID == "S_003" & me1$pfas_ID == "pfas_001", ])
+# tdat <- data.frame(me1[me1$study_ID == "S_003" & me1$pfas_ID == "pfas_001", ])
+# 
+# 
+# adult <- tdat[tdat$group_info == "adult", 1]
+# progeny <-tdat[tdat$group_info == "progeny", 1]
+# 
+# ids <- expand.grid(adult_id = adult, progeny_id = progeny)
+# 
+# adult_id <- ids[[1]]
+# progeny_id <- ids[[2]]
+# 
+# pos_adult <- match(adult_id, tdat$measurement_ID)
+# adult_dat <- tdat[pos_adult, ]
+# 
+# pos_progeny <- match(progeny_id, tdat$measurement_ID)
+# progeny_dat <- tdat[pos_progeny, ]
+# 
+# #ndat<-as.data.frame(cbind(adult_dat, chick_dat))
+# 
+# ndat <- data.frame(measurement_ID_A = adult_dat[["measurement_ID"]],
+#            measurement_ID_C = progeny_dat[[ "measurement_ID"]],
+#            mean_arithmetic_A = adult_dat[["mean_arithmetic"]],
+#            mean_arithmetic_C =  progeny_dat[[ "mean_arithmetic"]]
+#              )
 
-
-adult <- tdat[tdat$group_info == "adult", 1]
-progeny <-tdat[tdat$group_info == "progeny", 1]
-
-ids <- expand.grid(adult_id = adult, progeny_id = progeny)
-
-adult_id <- ids[[1]]
-progeny_id <- ids[[2]]
-
-pos_adult <- match(adult_id, tdat$measurement_ID)
-adult_dat <- tdat[pos_adult, ]
-
-pos_progeny <- match(progeny_id, tdat$measurement_ID)
-progeny_dat <- tdat[pos_progeny, ]
-
-#ndat<-as.data.frame(cbind(adult_dat, chick_dat))
-
-ndat <- data.frame(measurement_ID_A = adult_dat[["measurement_ID"]],
-           measurement_ID_C = progeny_dat[[ "measurement_ID"]],
-           mean_arithmetic_A = adult_dat[["mean_arithmetic"]],
-           mean_arithmetic_C =  progeny_dat[[ "mean_arithmetic"]]
-             )
-
-head(ndat)
+# head(ndat)
 
 # function
 
 wide_table <- function(dat){
 
-adult <- tdat[tdat$group_info == "adult", 1]
-progeny <-tdat[tdat$group_info == "progeny", 1]
+dat <- as.data.frame(dat)  
+  
+adult <- dat[dat$group_info == "adult", 1]
+progeny <-dat[dat$group_info == "progeny", 1]
 
 ids <- expand.grid(adult_id = adult, progeny_id = progeny)
 
 adult_id <- ids[[1]]
 progeny_id <- ids[[2]]
 
-pos_adult <- match(adult_id, tdat$measurement_ID)
-adult_dat <- tdat[pos_adult, ]
+pos_adult <- match(adult_id, dat$measurement_ID)
+adult_dat <- dat[pos_adult, ]
 
-pos_progeny <- match(progeny_id, tdat$measurement_ID)
-progeny_dat <- tdat[pos_progeny, ]
+pos_progeny <- match(progeny_id, dat$measurement_ID)
+progeny_dat <- dat[pos_progeny, ]
 
 #ndat<-as.data.frame(cbind(adult_dat, chick_dat))
 
@@ -224,11 +222,13 @@ ndat
 }
 
 
-res <- wide_table(tdat)
+dat <- list_dat[[3]]
 
-test.list <- list(tdat, tdat)
+res <- wide_table(list_dat[[3]])
+res
 
-ntable <- map_dfr(test.list, wide_table)
+# this applies wide_table data to every item in this list
+ntable <- map_dfr(list_dat, wide_table)
 
 ```
 
