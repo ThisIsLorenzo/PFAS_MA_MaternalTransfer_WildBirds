@@ -260,17 +260,15 @@ var_lnRR_ind <- function(mean_A, n_A, mean_P, n_P, aCV2a, aCV2p){
 
 
 
-## Calculating lnRR and Variance
+## Calculate Effect sizes
 ``` {r Calculating lnRR and Variance}
-# dat1adult <- filter(dat1, group_info == "adult")
-# dat1progeny <- filter(dat1, group_info == "egg")
-# lnRR <-
-#   dm_joined %>%
-#   dplyr::group_by(study_ID, group_info) %>% 
-#   escalc(measure = "ROM", n1i = dm_joined$n, n2i = dm_joined$n, m1i = dm_joined$mean_arithmetic, m2i = dm_joined$mean_arithmetic, sd1i = dm_joined$SD, sd2i = dm_joined$SD)
-# #joining the calculated lnRR and (yi) and variance (vi) into a new dataframe
-# dat2 <- bind_cols(dat1progeny, lnRR)
-# str(dat2)
+aCV2 <- ntable %>% 
+               group_by(study_ID_A) %>%  # Group by study 
+                    summarise(CV2a = mean((sd_A/mean_A)^2, na.rm = T),  
+                              CV2p = mean((sd_P/mean_P)^2, na.rm = T)) %>% 
+                              ungroup() %>% # ungroup 
+                              summarise(aCV2a = mean(CV2a, na.rm = T), # Mean CV^2 for exp and control groups across studies
+                              aCV2p = mean(CV2p, na.rm = T)) 
 ```
 ```{r create the forest plot}
 #forest(dat2$yi, dat2$vi)
