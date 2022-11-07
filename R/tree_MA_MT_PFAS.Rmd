@@ -1,0 +1,102 @@
+---
+title: "tree_MA_MT_PFAS"
+author: "LR"
+date: "2022-11-07"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, cache = F, echo=FALSE, results = FALSE}
+knitr::opts_chunk$set(error = TRUE) #allow some execution errors
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE, warning = FALSE)
+sessionInfo()
+```
+
+```{r load packages, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE}
+library(tidyverse)
+library(ape, curl)
+library(rotl)
+library(here)
+```
+
+```{r load data, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE}
+#setwd("/Users/z5391762/OneDrive - UNSW/Documents/PhD/GitHub/PFAS_MA_MaternalTransfer_WildBirds_PILOT")
+dat <- read.csv(here("Data", "species_info.csv"))
+str(dat)
+myspecies <- as.character(unique(dat$species_scientific_name)) #get list of species
+str_sort(myspecies) #visual check
+length(myspecies) #16 species
+length(unique(myspecies)) #16 unique species names
+```
+
+Using *rotl* package to retrieve synthetic species tree from Open Tree of Life
+
+Rotl is an R package (https://peerj.com/preprints/1471/) allowing access to synthetic phylogenetic tree available at Open Tree of Life database (https://opentreeoflife.org/). 
+
+```{r rotl find species, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE, }
+taxa <- tnrs_match_names(names = myspecies)
+dim(taxa) #16 specias - all matched
+table(taxa$approximate_match) #approximate matches
+taxa[taxa$approximate_match==TRUE, ] ##ctenopharyngodon idell and Mylopharyngodon piceus are two species of carp from China, the other approximation is ok
+```
+
+
+
+Before continuing I need to fix matches
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Get the initial tree.  
+
+```{r rotl species tree, warning = FALSE, results=FALSE}
+# tree <- tol_induced_subtree(ott_ids = taxa[["ott_id"]], 
+#                             label_format = "name")  
+# plot(tree,
+#      cex= 1, #font size
+#      label.offset =.1,
+#      no.margin = TRUE)
+```
+Check matching species and labels.
+
+```{r re-check tree labels}
+# taxa2 <- taxa
+# tree2 <- tree
+# 
+# #check overlap and differences with taxa list
+# intersect(tree2$tip.label, taxa2$unique_name) #0
+# setdiff(tree2$tip.label, taxa2$unique_name) #16
+# setdiff(taxa2$unique_name, tree2$tip.label) #16
+# 
+# #check if the tree is really binary 
+# is.binary.tree(tree2) #TRUE
+```
+Save tree
+
+```{r save final tree}
+# write.tree(tree2, file="C:/Users/z5391762/OneDrive - UNSW/Documents/PhD/GitHub/PFAS_MA_MaternalTransfer_WildBirds_PILOT/R/phylogenetic_tree.tre") #save the tree
+```
+
+
+```{r}
+
+# tree <- compute.brlen(tree2) # Generate branch lengths 
+# cor_tree <- vcv(new_tree,corr = T) # Generate phylogenetic variance-covariance matrix 
+# sp$Phylogeny <- as.factor(str_replace(sp$species_scientific_name, " ", "_")) # Add the `phylogeny` column to the data frame
+# colnames(new_tree) %in% sp$Phylogeny # Check correspondence between tip names and data frame
+# # checking all species are in the data
+# match(sp$Phylogeny, colnames(new_tree))
+# plot(new_tree)
+```
