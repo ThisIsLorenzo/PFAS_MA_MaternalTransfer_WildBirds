@@ -217,7 +217,9 @@ ndat <- data.frame(measurement_ID_A = adult_dat[["measurement_ID"]],
            sample_type_A = adult_dat[["sample_type"]],
            sample_type_P = progeny_dat[["sample_type"]],
            sampling_location_A = adult_dat[["sampling_location"]],
-           sampling_location_P = progeny_dat[["sampling_location"]]
+           sampling_location_P = progeny_dat[["sampling_location"]],
+           pfas_ID_A = adult_dat[["pfas_ID"]],
+           pfas_ID_P = progeny_dat[["pfas_ID"]]
              )
 ndat
 
