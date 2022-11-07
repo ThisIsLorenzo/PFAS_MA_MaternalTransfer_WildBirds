@@ -103,8 +103,7 @@ dm_joined
 
 
 
-
-I want to create a table with only the variables I need to create effect size IDs
+The following chunk creates a new table that includes only the variables we need to calculate effect sizes
 ```{r moving columns among dm objects}
 me1 <- 
   data_dm_all_keys %>% 
@@ -123,15 +122,6 @@ Study, PFAS type, species, and sampling location must be the same, so I group by
 The group (i.e., group_info) must be different
 
 ```{r}
-# First, let's work on only two studies:
-me2 <- 
-  me1 %>% 
-  dplyr::filter(study_ID == "S_001" | study_ID == "S_003")
-# First, let's work on S_001
-#me2 <- 
-#  me1 %>% 
-#  dplyr::filter(study_ID == "S_001" | study_ID == "S_003")
-
 #group by
 
 list_dat <- 
@@ -139,8 +129,7 @@ list_dat <-
   dplyr::group_split(study_ID,
                   pfas_ID , 
                   species_ID,
-                  #sampling_year, 
-                  sampling_location) ## dplyr::mutate( es_ID = ifelse())
+                  sampling_location)
 
 
 # TODO 
@@ -235,43 +224,27 @@ ntable <- map_dfr(list_dat, wide_table)
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### Effect size
+### Create functions
 The `lnRR_func` function is here used to calculate a log response ratio (lnRR) adjusted for small sample sizes. In addition, this formula accounts for correlated samples. 
 For more details, see *Doncaster and Spake (2018) Correction for bias in meta-analysis of little-replicated studies. Methods in Ecology and Evolution; 9:634-644*
 
 ```{r function to calculate effect size}
+#Changing columns names to make them shorter
+colnames(ntable)[3] <- "mean_A"
+colnames(ntable)[4] <- "mean_P"
+colnames(ntable)[5] <- "sd_A"
+colnames(ntable)[6] <- "sd_P"
+
 # Custom function to calculate the lnRR 
-lnRR_func <- function(Mc, Nc, Me, Ne, aCV2c, aCV2e){
-  lnRR <- log(Me/Mc) + 
-        0.5 * ((aCV2e/Ne) - (aCV2c/Nc))	
+lnRR_func <- function(mean_A, n_A, mean_P, n_P, aCV2a, aCV2p){
+  lnRR <- log(mean_P/mean_A) + 
+        0.5 * ((aCV2p/n_P) - (aCV2a/n_A))	
   lnRR
 }
 # Custom function to calculate the lnRR's sampling variance from independent designs (rTC = 0)
-var_lnRR_ind <- function(Mc, Nc, Me, Ne, aCV2c, aCV2e){
+var_lnRR_ind <- function(mean_A, n_A, mean_P, n_P, aCV2a, aCV2p){
   
-  var_lnRR <- (aCV2c/Nc) + (aCV2e/Ne) 
+  var_lnRR <- (aCV2a/n_A) + (aCV2p/n_P) 
   
   var_lnRR
 }
@@ -281,88 +254,25 @@ var_lnRR_ind <- function(Mc, Nc, Me, Ne, aCV2c, aCV2e){
 # Ne: Sample size of the cooked (experimental) sample 
 # aCV2c: Mean coefficient of variation of the raw (control) samples
 # aCV2e: Mean coefficient of variation of the cooked (experimental) samples
+
 ```
-
-### Generating the Phylogenetic Tree
-
-```{r get list of species, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE}
-myspecies <- as.character(unique(sp$species_scientific_name)) #get list of species
-str_sort(myspecies) #visual check
-length(myspecies) #16 species
-length(unique(myspecies)) #16 unique species names
-```
-Using *rotl* package to retrieve synthetic species tree from Open Tree of Life
-
-Rotl is an R package (https://peerj.com/preprints/1471/) allowing access to synthetic phylogenetic tree available at Open Tree of Life database (https://opentreeoflife.org/). 
-
-```{r rotl find species, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE, }
-taxa <- tnrs_match_names(names = myspecies)
-dim(taxa) #16 specias - all matched
-table(taxa$approximate_match) #approximate matches
-taxa[taxa$approximate_match==TRUE, ] ##ctenopharyngodon idell and Mylopharyngodon piceus are two species of carp from China, the other approximation is ok
-```
-Get the initial tree.  
-
-```{r rotl species tree, warning = FALSE, results=FALSE}
-tree <- tol_induced_subtree(ott_ids = taxa[["ott_id"]], 
-                            label_format = "name")  
-plot(tree,
-     cex= 1, #font size
-     label.offset =.1,
-     no.margin = TRUE)
-```
-Check matching species and labels.
-
-```{r re-check tree labels}
-taxa2 <- taxa
-tree2 <- tree
-
-#check overlap and differences with taxa list
-intersect(tree2$tip.label, taxa2$unique_name) #0
-setdiff(tree2$tip.label, taxa2$unique_name) #16
-setdiff(taxa2$unique_name, tree2$tip.label) #16
-
-#check if the tree is really binary 
-is.binary.tree(tree2) #TRUE
-```
-Save tree
-
-```{r save final tree}
-```
-
-### Work on the datatables
-
-```{r adding a table containing studies lnRRs to the dm}
-lnRR <- 
-  dm_joined %>% 
-  group_by(study_ID) %>% 
-  dplyr::summarise()
-  
-
-dm_with_summary$pfas_mean
-dm_draw(dm_with_summary)
-```
-
-
-
-
 
 
 
 
 ## Calculating lnRR and Variance
 ``` {r Calculating lnRR and Variance}
-dat1adult <- filter(dat1, group_info == "adult")
-dat1progeny <- filter(dat1, group_info == "egg")
-lnRR <-
-  dm_joined %>%
-  dplyr::group_by(study_ID, group_info) %>% 
-  escalc(measure = "ROM", n1i = dm_joined$n, n2i = dm_joined$n, m1i = dm_joined$mean_arithmetic, m2i = dm_joined$mean_arithmetic, sd1i = dm_joined$SD, sd2i = dm_joined$SD)
-#joining the calculated lnRR and (yi) and variance (vi) into a new dataframe
-dat2 <- bind_cols(dat1progeny, lnRR)
-str(dat2)
+# dat1adult <- filter(dat1, group_info == "adult")
+# dat1progeny <- filter(dat1, group_info == "egg")
+# lnRR <-
+#   dm_joined %>%
+#   dplyr::group_by(study_ID, group_info) %>% 
+#   escalc(measure = "ROM", n1i = dm_joined$n, n2i = dm_joined$n, m1i = dm_joined$mean_arithmetic, m2i = dm_joined$mean_arithmetic, sd1i = dm_joined$SD, sd2i = dm_joined$SD)
+# #joining the calculated lnRR and (yi) and variance (vi) into a new dataframe
+# dat2 <- bind_cols(dat1progeny, lnRR)
+# str(dat2)
 ```
 ```{r create the forest plot}
-forest(dat2$yi, dat2$vi)
+#forest(dat2$yi, dat2$vi)
 ```
 
