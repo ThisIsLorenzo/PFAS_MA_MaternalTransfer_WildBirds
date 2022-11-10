@@ -24,6 +24,7 @@ library(here)
 library(dm)
 library(dplyr)
 library(metafor)
+library(orchaRd)
 ```
 
 ```{r loading data, include=FALSE}
@@ -221,6 +222,9 @@ res
 # this applies wide_table data to every item in this list
 ntable <- map_dfr(list_dat, wide_table)
 
+ntable <- dplyr::mutate(ntable, esID = as.vector(001 : 412)) # add esID column
+ntable$esID <-  sub("(.{1})", "es_\\1", ntable$esID) #add es_
+ntable <- ntable[, c(25, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24)] # move es_ID column at the beginning
 ```
 
 
@@ -230,10 +234,10 @@ For more details, see *Doncaster and Spake (2018) Correction for bias in meta-an
 
 ```{r function to calculate effect size}
 #Changing columns names to make them shorter
-colnames(ntable)[3] <- "mean_A"
-colnames(ntable)[4] <- "mean_P"
-colnames(ntable)[5] <- "sd_A"
-colnames(ntable)[6] <- "sd_P"
+colnames(ntable)[4] <- "mean_A"
+colnames(ntable)[5] <- "mean_P"
+colnames(ntable)[6] <- "sd_A"
+colnames(ntable)[7] <- "sd_P"
 
 # Custom function to calculate the lnRR 
 lnRR_func <- function(mean_A, n_A, mean_P, n_P, aCV2a, aCV2p){
@@ -258,19 +262,61 @@ var_lnRR_ind <- function(mean_A, n_A, mean_P, n_P, aCV2a, aCV2p){
 ```
 
 
-
-
 ## Calculate Effect sizes
 ``` {r Calculating lnRR and Variance}
+# Calculate the squared coefficient of variation for adult and progeny groups
 aCV2 <- ntable %>% 
-               group_by(study_ID_A) %>%  # Group by study 
-                    summarise(CV2a = mean((sd_A/mean_A)^2, na.rm = T),  
-                              CV2p = mean((sd_P/mean_P)^2, na.rm = T)) %>% 
-                              ungroup() %>% # ungroup 
-                              summarise(aCV2a = mean(CV2a, na.rm = T), # Mean CV^2 for exp and control groups across studies
-                              aCV2p = mean(CV2p, na.rm = T)) 
-```
-```{r create the forest plot}
-#forest(dat2$yi, dat2$vi)
+  group_by(study_ID_A) %>%
+  summarise(CV2a = mean((sd_A/mean_A)^2, na.rm = T),
+            CV2p = mean((sd_P/mean_P)^2, na.rm = T)) %>% 
+  ungroup() %>% # ungroup 
+  summarise(aCV2a = mean(CV2a, na.rm = T), # Mean CV^2 for exp and control groups across studies 
+            aCV2p = mean(CV2p, na.rm = T))
+
+lnRR <- lnRR_func(mean_A = ntable$mean_A,
+                  n_A = ntable$n_A,
+                  mean_P = ntable$mean_P,
+                  n_P = ntable$n_P,
+                  aCV2a = aCV2[[1]],
+                  aCV2p = aCV2[[2]])
+
+var_lnRR <- var_lnRR_ind(mean_A = ntable$mean_A,
+                  n_A = ntable$n_A,
+                  mean_P = ntable$mean_P,
+                  n_P = ntable$n_P,
+                  aCV2a = aCV2[[1]],
+                  aCV2p = aCV2[[2]]) 
+
+dat <- ntable %>% 
+  dplyr::mutate(N_tilde = (n_A*n_P)/(n_A + n_P)) # getting effective sample size
+
+dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
 ```
 
+## Distribution of effect sizes 
+```{r, fig.height=8, fig.width=15}
+# mean 
+ggplot(dat, aes(x=lnRR))+ geom_histogram(fill = "salmon", col = "black", binwidth = 0.2) + theme_classic()
+# variance
+ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon", col = "black", binwidth = 0.05) + theme_classic()
+# log variance
+ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon", col = "black", binwidth = 0.05) + scale_x_log10()+theme_classic()
+```
+
+```{r create the forest plot}
+forest(dat$lnRR, dat$var_lnRR)
+```
+
+# Meta-analysis {.tabset}
+
+## MA with variance
+```{r}
+m1 <- rma.mv(yi = lnRR, V = var_lnRR, random = list(~1|esID,~1|study_ID_A),
+                 test = "t",
+                 data = dat)
+summary(m1) 
+i2_ml(m1)#heterogeneity: The I2 informs the proportion of the variance in observed effect is due to variance in true effects rather than sampling error
+
+#read https://daniel1noble.github.io/orchaRd/ for more details on making pretty plots 
+orchaRd::orchard_plot(m1, mod = "1", data = filter(dat, is.na(mean_A)=="FALSE" & is.na(mean_P)=="FALSE"), group = "study_ID_A", xlab = "lnRR", alpha=0.4)
+```
