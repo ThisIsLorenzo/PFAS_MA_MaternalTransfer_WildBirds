@@ -4,7 +4,7 @@ author: "LR"
 date: '2022-06-28'
 output: html_document
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 # Porpuse: This .Rmd document provides the code we used for data processing and data visualization.
 
@@ -222,9 +222,48 @@ res
 # this applies wide_table data to every item in this list
 ntable <- map_dfr(list_dat, wide_table)
 
-ntable <- dplyr::mutate(ntable, esID = as.vector(001 : 412)) # add esID column
-ntable$esID <-  sub("(.{1})", "es_\\1", ntable$esID) #add es_
+ntable <- dplyr::mutate(ntable, es_ID = as.vector(001 : 412)) # add esID column
+ntable$es_ID <-  sub("(.{1})", "es_\\1", ntable$es_ID) #add es_IDs
 ntable <- ntable[, c(25, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24)] # move es_ID column at the beginning
+# the following columns are created in order to link the new ntable to the dm abject
+ntable <- dplyr::mutate(ntable, study_ID =  ntable$study_ID_A) # add study_ID column
+ntable <- dplyr::mutate(ntable, species_ID =  ntable$species_ID_A) # add species_ID column
+ntable <- dplyr::mutate(ntable, pfas_ID =  ntable$pfas_ID_A) # add pfas_ID column
+```
+
+Add the ntable to the dm object
+
+```{r adding the ntable to the dm object, include=FALSE}
+nt <- ntable
+data_dm_no_keys <- dm(st, sp, pfas, co, sa, me, nt)
+
+data_dm_only_pks <- data_dm_no_keys %>%
+  dm_add_pk(table = st, columns = study_ID) %>%
+  dm_add_pk(sp, species_ID) %>%
+  dm_add_pk(pfas, pfas_ID) %>%
+  dm_add_pk(co, cohort_ID) %>%
+  dm_add_pk(sa, sample_ID) %>%
+  dm_add_pk(me, measurement_ID) %>%
+  dm_add_pk(nt, es_ID)
+data_dm_only_pks
+
+data_dm_all_keys <-
+  data_dm_only_pks %>%
+  dm_add_fk(table = co, columns = study_ID, ref_table = st) %>%
+  dm_add_fk(table = co, columns = species_ID, ref_table = sp) %>%
+  dm_add_fk(table = sa, columns = cohort_ID, ref_table = co) %>%
+  dm_add_fk(table = me, columns = sample_ID, ref_table = sa) %>%
+  dm_add_fk(table = me, columns = pfas_ID, ref_table = pfas) %>% 
+  dm_add_fk(table = nt, columns = study_ID, ref_table = st) %>% 
+  dm_add_fk(table = nt, columns = species_ID, ref_table = sp) %>% 
+  dm_add_fk(table = nt, columns = pfas_ID, ref_table = pfas)
+data_dm_all_keys
+
+data_dm_all_keys %>% 
+  dm_draw()
+
+data_dm_all_keys %>% 
+  dm_examine_constraints()
 ```
 
 
@@ -259,6 +298,27 @@ var_lnRR_ind <- function(mean_A, n_A, mean_P, n_P, aCV2a, aCV2p){
 # aCV2c: Mean coefficient of variation of the raw (control) samples
 # aCV2e: Mean coefficient of variation of the cooked (experimental) samples
 
+```
+
+
+## Import phylogenetic information and calculate phylogenetic variance-covariance matrix
+
+NOTE: The phylogenetic tree was generated in the `tree_MA_MT_PFAS.Rmd` document
+
+```{r, fig.height=10, fig.width = 8}
+tree <- read.tree(here("R", "phylogenetic_tree.tre")) # Import phylogenetic tree (see tree_MA_MT_PFAS.Rmd for more details) 
+tree <- compute.brlen(tree) # Generate branch lengths 
+cor_tree <- vcv(tree,corr = T) # Generate phylogenetic variance-covariance matrix 
+
+
+
+# dat$Phylogeny <- as.factor(str_replace(dat$Species_Scientific, " ", "_")) # Add the `phylogeny` column to the data frame
+# colnames(cor_tree) %in% dat$Phylogeny # Check correspondence between tip names and data frame
+# # checking all species are in the data
+# #match(unique(dat$Phylogeny),colnames(cor_tree))
+# match(dat$Phylogeny, colnames(cor_tree))
+# # plotting tree
+# plot(tree)
 ```
 
 
@@ -320,3 +380,45 @@ i2_ml(m1)#heterogeneity: The I2 informs the proportion of the variance in observ
 #read https://daniel1noble.github.io/orchaRd/ for more details on making pretty plots 
 orchaRd::orchard_plot(m1, mod = "1", data = filter(dat, is.na(mean_A)=="FALSE" & is.na(mean_P)=="FALSE"), group = "study_ID_A", xlab = "lnRR", alpha=0.4)
 ```
+
+Let's add pfas_ID as moderator in the model
+```{r}
+dat$pfas_ID_A <- as.factor(dat$pfas_ID_A)
+m2 <- rma.mv(yi = lnRR, V = var_lnRR, random = list(~1|pfas_ID_A, ~1|esID,~1|study_ID_A),
+                 test = "t",
+                 data = dat)
+summary(m2) 
+i2_ml(m2)#heterogeneity: The I2 informs the proportion of the variance in observed effect is due to variance in true effects rather than sampling error
+```
+
+Let's add sample_type_P as moderator in the model
+```{r}
+dat$sample_type_P <- as.factor(dat$sample_type_P)
+m3 <- rma.mv(yi = lnRR, V = var_lnRR, random = list(~1|sample_type_P, ~1|esID,~1|study_ID_A),
+                 test = "t",
+                 data = dat)
+summary(m3) 
+i2_ml(m3)#heterogeneity: The I2 informs the proportion of the variance in observed effect is due to variance in true effects rather than sampling error
+```
+
+# **Intercept meta-analytical model**
+
+## Determine the random effect structure
+
+```{r}
+MA_all_rand_effects <- rma.mv(lnRR, var_lnRR, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
+              random = list(~1|study_ID_A, # Identity of the study
+                            ~1|species_ID_A, # Non-phylogenetic correlation between species
+                            ~1|pfas_ID_A, # Type of PFAS 
+                            ~1|esID), # Effect size identity 
+              test = "t", 
+              data = dat,
+              sparse = TRUE)
+summary(MA_all_rand_effects) # Cohort ID does not explain any variance 
+```
+
+
+
+
+
+
