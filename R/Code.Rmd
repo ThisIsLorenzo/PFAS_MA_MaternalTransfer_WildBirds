@@ -310,15 +310,24 @@ tree <- read.tree(here("R", "phylogenetic_tree.tre")) # Import phylogenetic tree
 tree <- compute.brlen(tree) # Generate branch lengths 
 cor_tree <- vcv(tree,corr = T) # Generate phylogenetic variance-covariance matrix 
 
+nt_species <- 
+  data_dm_all_keys %>% 
+  dm_select(sp, species_ID | species_scientific_name) %>% 
+  dm_flatten_to_tbl(nt, sp, .join = left_join)
 
+nt_species$Phylogeny <- as.factor(str_replace(nt_species$species_scientific_name, " ", "_")) # Add the `phylogeny` column to the data frame
+colnames(cor_tree) %in% nt_species$Phylogeny # Check correspondence between tip names and data frame
 
-# dat$Phylogeny <- as.factor(str_replace(dat$Species_Scientific, " ", "_")) # Add the `phylogeny` column to the data frame
-# colnames(cor_tree) %in% dat$Phylogeny # Check correspondence between tip names and data frame
-# # checking all species are in the data
-# #match(unique(dat$Phylogeny),colnames(cor_tree))
-# match(dat$Phylogeny, colnames(cor_tree))
-# # plotting tree
-# plot(tree)
+# Rename species names that do not match
+levels(nt_species$Phylogeny)[levels(nt_species$Phylogeny) == "Larus_audouinii"] <- "Ichthyaetus_audouinii"
+levels(nt_species$Phylogeny)[levels(nt_species$Phylogeny) == "Phalacrocorax_aristotelis"] <- "Gulosus_aristotelis"
+levels(nt_species$Phylogeny)[levels(nt_species$Phylogeny) == "Diomedea_immutabilis"] <- "Phoebastria_immutabilis"
+
+# checking all species are in the data
+match(unique(nt_species$Phylogeny),colnames(cor_tree))
+match(nt_species$Phylogeny, colnames(cor_tree))
+# plotting tree
+plot(tree)
 ```
 
 
