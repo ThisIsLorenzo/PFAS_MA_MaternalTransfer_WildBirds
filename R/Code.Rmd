@@ -273,10 +273,10 @@ For more details, see *Doncaster and Spake (2018) Correction for bias in meta-an
 
 ```{r function to calculate effect size}
 #Changing columns names to make them shorter
-colnames(ntable)[4] <- "mean_A"
-colnames(ntable)[5] <- "mean_P"
-colnames(ntable)[6] <- "sd_A"
-colnames(ntable)[7] <- "sd_P"
+colnames(nt)[4] <- "mean_A"
+colnames(nt)[5] <- "mean_P"
+colnames(nt)[6] <- "sd_A"
+colnames(nt)[7] <- "sd_P"
 
 # Custom function to calculate the lnRR 
 lnRR_func <- function(mean_A, n_A, mean_P, n_P, aCV2a, aCV2p){
@@ -310,22 +310,22 @@ tree <- read.tree(here("R", "phylogenetic_tree.tre")) # Import phylogenetic tree
 tree <- compute.brlen(tree) # Generate branch lengths 
 cor_tree <- vcv(tree,corr = T) # Generate phylogenetic variance-covariance matrix 
 
-nt_species <- 
+nt2 <- 
   data_dm_all_keys %>% 
   dm_select(sp, species_ID | species_scientific_name) %>% 
   dm_flatten_to_tbl(nt, sp, .join = left_join)
 
-nt_species$Phylogeny <- as.factor(str_replace(nt_species$species_scientific_name, " ", "_")) # Add the `phylogeny` column to the data frame
-colnames(cor_tree) %in% nt_species$Phylogeny # Check correspondence between tip names and data frame
+nt2$Phylogeny <- as.factor(str_replace(nt2$species_scientific_name, " ", "_")) # Add the `phylogeny` column to the data frame
+colnames(cor_tree) %in% nt2$Phylogeny # Check correspondence between tip names and data frame
 
 # Rename species names that do not match
-levels(nt_species$Phylogeny)[levels(nt_species$Phylogeny) == "Larus_audouinii"] <- "Ichthyaetus_audouinii"
-levels(nt_species$Phylogeny)[levels(nt_species$Phylogeny) == "Phalacrocorax_aristotelis"] <- "Gulosus_aristotelis"
-levels(nt_species$Phylogeny)[levels(nt_species$Phylogeny) == "Diomedea_immutabilis"] <- "Phoebastria_immutabilis"
+levels(nt2$Phylogeny)[levels(nt2$Phylogeny) == "Larus_audouinii"] <- "Ichthyaetus_audouinii"
+levels(nt2$Phylogeny)[levels(nt2$Phylogeny) == "Phalacrocorax_aristotelis"] <- "Gulosus_aristotelis"
+levels(nt2$Phylogeny)[levels(nt2$Phylogeny) == "Diomedea_immutabilis"] <- "Phoebastria_immutabilis"
 
 # checking all species are in the data
-match(unique(nt_species$Phylogeny),colnames(cor_tree))
-match(nt_species$Phylogeny, colnames(cor_tree))
+match(unique(nt2$Phylogeny),colnames(cor_tree))
+match(nt2$Phylogeny, colnames(cor_tree))
 # plotting tree
 plot(tree)
 ```
@@ -334,29 +334,35 @@ plot(tree)
 ## Calculate Effect sizes
 ``` {r Calculating lnRR and Variance}
 # Calculate the squared coefficient of variation for adult and progeny groups
-aCV2 <- ntable %>% 
-  group_by(study_ID_A) %>%
+
+colnames(nt2)[4] <- "mean_A"
+colnames(nt2)[5] <- "mean_P"
+colnames(nt2)[6] <- "sd_A"
+colnames(nt2)[7] <- "sd_P"
+
+aCV2 <- nt2 %>% 
+  group_by(study_ID) %>%
   summarise(CV2a = mean((sd_A/mean_A)^2, na.rm = T),
             CV2p = mean((sd_P/mean_P)^2, na.rm = T)) %>% 
   ungroup() %>% # ungroup 
   summarise(aCV2a = mean(CV2a, na.rm = T), # Mean CV^2 for exp and control groups across studies 
             aCV2p = mean(CV2p, na.rm = T))
 
-lnRR <- lnRR_func(mean_A = ntable$mean_A,
-                  n_A = ntable$n_A,
-                  mean_P = ntable$mean_P,
-                  n_P = ntable$n_P,
+lnRR <- lnRR_func(mean_A = nt2$mean_A,
+                  n_A = nt2$n_A,
+                  mean_P = nt2$mean_P,
+                  n_P = nt2$n_P,
                   aCV2a = aCV2[[1]],
                   aCV2p = aCV2[[2]])
 
-var_lnRR <- var_lnRR_ind(mean_A = ntable$mean_A,
-                  n_A = ntable$n_A,
-                  mean_P = ntable$mean_P,
-                  n_P = ntable$n_P,
+var_lnRR <- var_lnRR_ind(mean_A = nt2$mean_A,
+                  n_A = nt2$n_A,
+                  mean_P = nt2$mean_P,
+                  n_P = nt2$n_P,
                   aCV2a = aCV2[[1]],
                   aCV2p = aCV2[[2]]) 
 
-dat <- ntable %>% 
+dat <- nt2 %>% 
   dplyr::mutate(N_tilde = (n_A*n_P)/(n_A + n_P)) # getting effective sample size
 
 dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
@@ -380,7 +386,7 @@ forest(dat$lnRR, dat$var_lnRR)
 
 ## MA with variance
 ```{r}
-m1 <- rma.mv(yi = lnRR, V = var_lnRR, random = list(~1|esID,~1|study_ID_A),
+m1 <- rma.mv(yi = lnRR, V = var_lnRR, random = list(~1|es_ID,~1|study_ID),
                  test = "t",
                  data = dat)
 summary(m1) 
@@ -392,8 +398,12 @@ orchaRd::orchard_plot(m1, mod = "1", data = filter(dat, is.na(mean_A)=="FALSE" &
 
 Let's add pfas_ID as moderator in the model
 ```{r}
-dat$pfas_ID_A <- as.factor(dat$pfas_ID_A)
-m2 <- rma.mv(yi = lnRR, V = var_lnRR, random = list(~1|pfas_ID_A, ~1|esID,~1|study_ID_A),
+dat$pfas_ID <- as.factor(dat$pfas_ID)
+m2 <- rma.mv(yi = lnRR,
+             V = var_lnRR, 
+             random = list(~1|pfas_ID,
+                           ~1|es_ID,
+                           ~1|study_ID),
                  test = "t",
                  data = dat)
 summary(m2) 
@@ -403,7 +413,11 @@ i2_ml(m2)#heterogeneity: The I2 informs the proportion of the variance in observ
 Let's add sample_type_P as moderator in the model
 ```{r}
 dat$sample_type_P <- as.factor(dat$sample_type_P)
-m3 <- rma.mv(yi = lnRR, V = var_lnRR, random = list(~1|sample_type_P, ~1|esID,~1|study_ID_A),
+m3 <- rma.mv(yi = lnRR,
+             V = var_lnRR,
+             random = list(~1|sample_type_P,
+                           ~1|es_ID,
+                           ~1|study_ID),
                  test = "t",
                  data = dat)
 summary(m3) 
@@ -416,14 +430,14 @@ i2_ml(m3)#heterogeneity: The I2 informs the proportion of the variance in observ
 
 ```{r}
 MA_all_rand_effects <- rma.mv(lnRR, var_lnRR, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
-              random = list(~1|study_ID_A, # Identity of the study
-                            ~1|species_ID_A, # Non-phylogenetic correlation between species
-                            ~1|pfas_ID_A, # Type of PFAS 
-                            ~1|esID), # Effect size identity 
+              random = list(~1|study_ID, # Identity of the study
+                            ~1|species_ID, # Non-phylogenetic correlation between species
+                            ~1|pfas_ID, # Type of PFAS 
+                            ~1|es_ID), # Effect size identity 
               test = "t", 
               data = dat,
               sparse = TRUE)
-summary(MA_all_rand_effects) # Cohort ID does not explain any variance 
+summary(MA_all_rand_effects) #  does not explain any variance 
 ```
 
 
