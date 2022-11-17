@@ -425,6 +425,26 @@ orchaRd::orchard_plot(m1,
                       group = "study_ID",
                       xlab = "lnRR", 
                       alpha=0.4)
+
+
+# Remove albumen from the model
+
+
+m1 <- rma.mv(yi = lnRR, V = var_lnRR, random = list(~1|es_ID,~1|study_ID),
+                 test = "t",
+                 data = filter(dat,
+                               is.na(mean_A)=="FALSE" & is.na(mean_P)=="FALSE" & sample_type_P != "albumen"))
+summary(m1) 
+i2_ml(m1)#heterogeneity: The I2 informs the proportion of the variance in observed effect is due to variance in true effects rather than sampling error
+
+#read https://daniel1noble.github.io/orchaRd/ for more details on making pretty plots 
+orchaRd::orchard_plot(m1,
+                      mod = "1", 
+                      data = filter(dat,
+                                    is.na(mean_A)=="FALSE" & is.na(mean_P)=="FALSE" & sample_type_P != "albumen"), 
+                      group = "study_ID",
+                      xlab = "lnRR", 
+                      alpha=0.4)
 ```
 
 Let's add pfas_ID as moderator in the model
@@ -468,7 +488,7 @@ MA_all_rand_effects <- rma.mv(lnRR, var_lnRR, # Add `var_lnRR` to account for co
               test = "t", 
               data = dat,
               sparse = TRUE)
-summary(MA_all_rand_effects) #  does not explain any variance 
+summary(MA_all_rand_effects) # ... does not explain any variance 
 ```
 
 
