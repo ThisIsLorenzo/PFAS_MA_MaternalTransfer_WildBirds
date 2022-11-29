@@ -38,7 +38,7 @@ Rotl is an R package (https://peerj.com/preprints/1471/) allowing access to synt
 
 ```{r rotl find species, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE, }
 taxa <- tnrs_match_names(names = myspecies)
-dim(taxa) #16 specias - all matched
+dim(taxa) #16 species - all matched
 table(taxa$approximate_match) # no approximate matches
 # taxa[taxa$approximate_match==TRUE, ]
 ```
