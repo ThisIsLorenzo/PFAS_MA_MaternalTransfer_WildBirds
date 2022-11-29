@@ -1,0 +1,486 @@
+---
+title: "Chapter3_results"
+author: "L. Ricolfi"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_float: yes
+    toc_collapsed: yes
+    toc_depth: 2
+    number_sections: yes
+    theme: cerulean
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+# Intro
+
+**Project title:** Maternal PFAS transfer in birds - A systematic review and meta-analysis
+
+In this document I provide the **preliminary** results of my systematic review and meta-analysis on maternal PFAS transfer in wild birds
+
+```{r loading packages, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE}
+library(tidyverse)
+library(readr)
+library(ape, curl)
+library(rotl)
+library(here)
+library(dm)
+library(dplyr)
+library(metafor)
+library(orchaRd)
+```
+
+```{r loading data, include=FALSE}
+st <- read_csv(here("Data", "study_info.csv"))
+sp <- read_csv(here("Data", "species_info.csv"))
+pfas <- read_csv(here("Data", "pfas_info.csv"))
+co <- read_csv(here("Data", "cohort_info.csv"))
+sa <- read_csv(here("Data", "sample_info.csv"))
+me <- read_csv(here("Data", "measurement_info.csv"))
+```
+
+```{r cleaning - removing unnecessary columns (i.e., "Timestamp" and comment columns)}
+st <- st %>% 
+  select(-("Timestamp")) %>%
+  select(-(ends_with("comment")))
+sp <- sp %>% 
+  select(-("Timestamp")) %>%
+  select(-(ends_with("comment")))
+pfas <- pfas %>% 
+  select(-("Timestamp")) %>% 
+  select(-(ends_with("comment")))
+co <- co %>% 
+  select(-("Timestamp")) %>%
+  select(-(ends_with("comment")))
+sa <- sa %>% 
+  select(-("Timestamp")) %>% 
+  select(-(ends_with("comment")))
+me <- me %>%
+  select(-(ends_with("comment")))
+```
+
+# Data Model
+
+In this project I used a relational database as data model. The extracted data from the included studies is stored in 6 data tables organized by type of data.
+
+```{r adding tables to the dm object, include=FALSE}
+data_dm_no_keys <- dm(st, sp, pfas, co, sa, me)
+data_dm_no_keys
+data_dm_no_keys$st
+data_dm_no_keys[c("st", "co")]
+```
+
+```{r defining primary keys}
+data_dm_only_pks <- data_dm_no_keys %>% 
+  dm_add_pk(table = st, columns = study_ID) %>% 
+  dm_add_pk(sp, species_ID) %>% 
+  dm_add_pk(pfas, pfas_ID) %>% 
+  dm_add_pk(co, cohort_ID) %>% 
+  dm_add_pk(sa, sample_ID) %>% 
+  dm_add_pk(me, measurement_ID)
+```
+
+```{r defining foreign keys}
+data_dm_all_keys <- 
+  data_dm_only_pks %>% 
+  dm_add_fk(table = co, columns = study_ID, ref_table = st) %>% 
+  dm_add_fk(table = co, columns = species_ID, ref_table = sp) %>%
+  dm_add_fk(table = sa, columns = cohort_ID, ref_table = co) %>%
+  dm_add_fk(table = me, columns = sample_ID, ref_table = sa) %>%
+  dm_add_fk(table = me, columns = pfas_ID, ref_table = pfas)
+```
+
+The following diagram shows how the 6 data tables are related each other and the keys that make the connections possible.
+
+-  **me** = measurements data table. It includes statistical data for effect sizes calculation
+
+-  **pfas** = data related to the pfas types
+
+-  **sa** = data related to the sample types
+
+-  **co** = data related to the cohorts
+
+-  **sp** = data related to the bird species
+
+-  **st** = data related to the studies
+
+```{r visualization}
+data_dm_all_keys %>% 
+  dm_draw()
+```
+
+## Meta-data
+Please refer to the file "chapter3_metadata.png".
+```{r merging all tables into one big table}
+dm_joined <- 
+  data_dm_all_keys %>% 
+  dm_flatten_to_tbl(.start = me, .recursive = TRUE)
+```
+
+```{r moving columns among dm objects}
+me1 <- 
+  data_dm_all_keys %>% 
+  dm_select(me, measurement_ID | group_info | sample_ID | pfas_ID | mean_arithmetic | SD | n | limit_type) %>% 
+  dm_select(co, cohort_ID | species_ID | study_ID | sampling_location | life_stage) %>% 
+  dm_select(pfas, pfas_ID) %>% 
+  dm_select(sp, species_ID) %>% 
+  dm_select(st, study_ID) %>% 
+  dm_flatten_to_tbl(.start = me, .recursive = TRUE, .join = left_join)
+```
+
+
+```{r}
+#group by
+
+list_dat <- 
+  me1 %>% 
+  dplyr::group_split(study_ID,
+                  pfas_ID , 
+                  species_ID,
+                  sampling_location)
+
+
+# TODO 
+
+# tdat <- data.frame(me1[me1$study_ID == "S_003" & me1$pfas_ID == "pfas_001", ])
+# 
+# 
+# adult <- tdat[tdat$group_info == "adult", 1]
+# progeny <-tdat[tdat$group_info == "progeny", 1]
+# 
+# ids <- expand.grid(adult_id = adult, progeny_id = progeny)
+# 
+# adult_id <- ids[[1]]
+# progeny_id <- ids[[2]]
+# 
+# pos_adult <- match(adult_id, tdat$measurement_ID)
+# adult_dat <- tdat[pos_adult, ]
+# 
+# pos_progeny <- match(progeny_id, tdat$measurement_ID)
+# progeny_dat <- tdat[pos_progeny, ]
+# 
+# #ndat<-as.data.frame(cbind(adult_dat, chick_dat))
+# 
+# ndat <- data.frame(measurement_ID_A = adult_dat[["measurement_ID"]],
+#            measurement_ID_C = progeny_dat[[ "measurement_ID"]],
+#            mean_arithmetic_A = adult_dat[["mean_arithmetic"]],
+#            mean_arithmetic_C =  progeny_dat[[ "mean_arithmetic"]]
+#              )
+
+# head(ndat)
+
+# function
+
+wide_table <-
+  function(dat)
+    {
+
+dat <-
+  as.data.frame(dat)  
+  
+adult <-
+  dat[dat$group_info == "adult", 1]
+progeny <-
+  dat[dat$group_info == "progeny", 1]
+
+ids <-
+  expand.grid(adult_id = adult,
+              progeny_id = progeny)
+
+adult_id <- ids[[1]]
+progeny_id <- ids[[2]]
+
+pos_adult <- match(adult_id, dat$measurement_ID)
+adult_dat <- dat[pos_adult, ]
+
+pos_progeny <- match(progeny_id, dat$measurement_ID)
+progeny_dat <- dat[pos_progeny, ]
+
+#ndat<-as.data.frame(cbind(adult_dat, chick_dat))
+
+ndat <- data.frame(measurement_ID_A = adult_dat[["measurement_ID"]],
+           measurement_ID_P = progeny_dat[[ "measurement_ID"]],
+           mean_arithmetic_A = adult_dat[["mean_arithmetic"]],
+           mean_arithmetic_P =  progeny_dat[[ "mean_arithmetic"]],
+           SD_A = adult_dat[["SD"]],
+           SD_P = progeny_dat[["SD"]],
+           n_A = adult_dat[["n"]],
+           n_P = progeny_dat[["n"]],
+           life_stage_A = adult_dat[["life_stage"]],
+           life_stage_P = progeny_dat[["life_stage"]],
+           study_ID_A = adult_dat[["study_ID"]],
+           study_ID_P = progeny_dat[["study_ID"]],
+           species_ID_A = adult_dat[["species_ID"]],
+           species_ID_P = progeny_dat[["species_ID"]],
+           sample_ID_A = adult_dat[["sample_ID"]],
+           sample_ID_P = progeny_dat[["sample_ID"]],
+           cohort_ID_A = adult_dat[["cohort_ID"]],
+           cohort_ID_P = progeny_dat[["cohort_ID"]],
+           sample_type_A = adult_dat[["sample_type"]],
+           sample_type_P = progeny_dat[["sample_type"]],
+           sampling_location_A = adult_dat[["sampling_location"]],
+           sampling_location_P = progeny_dat[["sampling_location"]],
+           pfas_ID_A = adult_dat[["pfas_ID"]],
+           pfas_ID_P = progeny_dat[["pfas_ID"]],
+           limit_type_A = adult_dat[["limit_type"]],
+           limit_type_P = progeny_dat[["limit_type"]]
+             )
+
+}
+
+
+dat <- list_dat[[3]]
+
+res <- wide_table(list_dat[[3]])
+
+
+# this applies wide_table data to every item in this list
+ntable <- map_dfr(list_dat, wide_table)
+
+ntable <- dplyr::mutate(ntable, es_ID = as.vector(001 : 412)) # add esID column
+ntable$es_ID <-  sub("(.{1})", "es_\\1", ntable$es_ID) #add es_IDs
+ntable <- ntable[, c(27, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26)] # move es_ID column at the beginning
+# the following columns are created in order to link the new ntable to the dm abject
+ntable <- dplyr::mutate(ntable, study_ID =  ntable$study_ID_A) # add study_ID column
+ntable <- dplyr::mutate(ntable, species_ID =  ntable$species_ID_A) # add species_ID column
+ntable <- dplyr::mutate(ntable, pfas_ID =  ntable$pfas_ID_A) # add pfas_ID column
+
+
+# Remove es_IDs where limit_type_A OR limit_type_P is != NA
+ntable_no_limits <- 
+  ntable %>% 
+  dplyr::filter(if_all(c(limit_type_A, limit_type_P), ~is.na(.)))
+
+# Remove es_IDs where both limit_type_A AND limit_type_P are != NA
+ntable <- 
+  ntable %>% 
+  dplyr::filter(is.na(limit_type_A) == "TRUE" |
+               is.na(limit_type_P) == "TRUE")
+
+```
+
+
+```{r adding the ntable to the dm object, include=FALSE}
+nt <- ntable
+data_dm_no_keys <- dm(st, sp, pfas, co, sa, me, nt)
+
+data_dm_only_pks <- data_dm_no_keys %>%
+  dm_add_pk(table = st, columns = study_ID) %>%
+  dm_add_pk(sp, species_ID) %>%
+  dm_add_pk(pfas, pfas_ID) %>%
+  dm_add_pk(co, cohort_ID) %>%
+  dm_add_pk(sa, sample_ID) %>%
+  dm_add_pk(me, measurement_ID) %>%
+  dm_add_pk(nt, es_ID)
+data_dm_only_pks
+
+data_dm_all_keys <-
+  data_dm_only_pks %>%
+  dm_add_fk(table = co, columns = study_ID, ref_table = st) %>%
+  dm_add_fk(table = co, columns = species_ID, ref_table = sp) %>%
+  dm_add_fk(table = sa, columns = cohort_ID, ref_table = co) %>%
+  dm_add_fk(table = me, columns = sample_ID, ref_table = sa) %>%
+  dm_add_fk(table = me, columns = pfas_ID, ref_table = pfas) %>% 
+  dm_add_fk(table = nt, columns = study_ID, ref_table = st) %>% 
+  dm_add_fk(table = nt, columns = species_ID, ref_table = sp) %>% 
+  dm_add_fk(table = nt, columns = pfas_ID, ref_table = pfas)
+data_dm_all_keys
+
+data_dm_all_keys %>% 
+  dm_draw()
+
+data_dm_all_keys %>% 
+  dm_examine_constraints()
+```
+
+# Functions
+
+The `lnRR_func` function is here used to calculate a log response ratio (lnRR) adjusted for small sample sizes. In addition, this formula accounts for correlated samples. For more details, see *Doncaster and Spake (2018) Correction for bias in meta-analysis of little-replicated studies. Methods in Ecology and Evolution; 9:634-644*
+
+lnRR_func <- function(mean_A, n_A, mean_P, n_P, aCV2a, aCV2p){
+  lnRR <- log(mean_P/mean_A) + 
+        0.5 * ((aCV2p/n_P) - (aCV2a/n_A))	
+  lnRR
+}
+
+Custom function to calculate the lnRR's sampling variance from independent designs (rTC = 0)
+var_lnRR_ind <- function(mean_A, n_A, mean_P, n_P, aCV2a, aCV2p){
+  
+  var_lnRR <- (aCV2a/n_A) + (aCV2p/n_P) 
+  
+  var_lnRR
+}
+
+```{r function to calculate effect size}
+#Changing columns names to make them shorter
+colnames(nt)[4] <- "mean_A"
+colnames(nt)[5] <- "mean_P"
+colnames(nt)[6] <- "sd_A"
+colnames(nt)[7] <- "sd_P"
+
+# Custom function to calculate the lnRR 
+lnRR_func <- function(mean_A, n_A, mean_P, n_P, aCV2a, aCV2p){
+  lnRR <- log(mean_P/mean_A) + 
+        0.5 * ((aCV2p/n_P) - (aCV2a/n_A))	
+  lnRR
+}
+# Custom function to calculate the lnRR's sampling variance from independent designs (rTC = 0)
+var_lnRR_ind <- function(mean_A, n_A, mean_P, n_P, aCV2a, aCV2p){
+  
+  var_lnRR <- (aCV2a/n_A) + (aCV2p/n_P) 
+  
+  var_lnRR
+}
+# Mc: Concentration of PFAS of the raw (control) sample
+# Nc: Sample size of the raw (control) sample
+# Me: Concentration of PFAS of the cooked (experimental) sample
+# Ne: Sample size of the cooked (experimental) sample 
+# aCV2c: Mean coefficient of variation of the raw (control) samples
+# aCV2e: Mean coefficient of variation of the cooked (experimental) samples
+
+```
+# Phylogenetic tree
+
+The following is the phylogenetic tree of the bird species
+```{r, fig.height=10, fig.width = 8}
+tree <- read.tree(here("R", "phylogenetic_tree.tre")) # Import phylogenetic tree (see tree_MA_MT_PFAS.Rmd for more details) 
+tree <- compute.brlen(tree) # Generate branch lengths 
+cor_tree <- vcv(tree,corr = T) # Generate phylogenetic variance-covariance matrix 
+
+nt2 <- 
+  data_dm_all_keys %>% 
+  dm_select(sp, species_ID | species_scientific_name) %>% 
+  dm_flatten_to_tbl(nt, sp, .join = left_join)
+
+nt2$Phylogeny <- as.factor(str_replace(nt2$species_scientific_name, " ", "_")) # Add the `phylogeny` column to the data frame
+
+# Rename species names that do not match
+levels(nt2$Phylogeny)[levels(nt2$Phylogeny) == "Larus_audouinii"] <- "Ichthyaetus_audouinii"
+levels(nt2$Phylogeny)[levels(nt2$Phylogeny) == "Phalacrocorax_aristotelis"] <- "Gulosus_aristotelis"
+levels(nt2$Phylogeny)[levels(nt2$Phylogeny) == "Diomedea_immutabilis"] <- "Phoebastria_immutabilis"
+plot(tree)
+```
+
+# Calculate Effect sizes
+
+```{r Calculating lnRR and Variance}
+# Calculate the squared coefficient of variation for adult and progeny groups
+
+colnames(nt2)[4] <- "mean_A"
+colnames(nt2)[5] <- "mean_P"
+colnames(nt2)[6] <- "sd_A"
+colnames(nt2)[7] <- "sd_P"
+
+aCV2 <- nt2 %>% 
+  group_by(study_ID) %>%
+  summarise(CV2a = mean((sd_A/mean_A)^2, na.rm = T),
+            CV2p = mean((sd_P/mean_P)^2, na.rm = T)) %>% 
+  ungroup() %>% # ungroup 
+  summarise(aCV2a = mean(CV2a, na.rm = T), # Mean CV^2 for exp and control groups across studies 
+            aCV2p = mean(CV2p, na.rm = T))
+
+lnRR <- lnRR_func(mean_A = nt2$mean_A,
+                  n_A = nt2$n_A,
+                  mean_P = nt2$mean_P,
+                  n_P = nt2$n_P,
+                  aCV2a = aCV2[[1]],
+                  aCV2p = aCV2[[2]])
+
+var_lnRR <- var_lnRR_ind(mean_A = nt2$mean_A,
+                  n_A = nt2$n_A,
+                  mean_P = nt2$mean_P,
+                  n_P = nt2$n_P,
+                  aCV2a = aCV2[[1]],
+                  aCV2p = aCV2[[2]]) 
+
+dat <- nt2 %>% 
+  dplyr::mutate(N_tilde = (n_A*n_P)/(n_A + n_P)) # getting effective sample size
+
+dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
+```
+
+The following graph shows the distribution of effect sizes
+
+```{r, fig.height=8, fig.width=15}
+# mean 
+ggplot(dat, aes(x=lnRR))+ geom_histogram(fill = "salmon", col = "black", binwidth = 0.2) + theme_classic()
+# variance
+ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon", col = "black", binwidth = 0.05) + theme_classic()
+# log variance
+ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon", col = "black", binwidth = 0.05) + scale_x_log10()+theme_classic()
+```
+
+
+# Meta-analysis {.tabset}
+
+## MA with variance
+
+```{r}
+m1 <- rma.mv(yi = lnRR, V = var_lnRR, random = list(~1|es_ID,~1|study_ID),
+                 test = "t",
+                 data = filter(dat,
+                               is.na(mean_A)=="FALSE" & is.na(mean_P)=="FALSE"))
+summary(m1) 
+i2_ml(m1)#heterogeneity: The I2 informs the proportion of the variance in observed effect is due to variance in true effects rather than sampling error
+
+#read https://daniel1noble.github.io/orchaRd/ for more details on making pretty plots 
+orchaRd::orchard_plot(m1,
+                      mod = "1", 
+                      data = filter(dat,
+                                    is.na(mean_A)=="FALSE" & is.na(mean_P)=="FALSE"), 
+                      group = "study_ID",
+                      xlab = "lnRR", 
+                      alpha=0.4)
+```
+
+## Moderators
+Let's add **pfas type** as moderator in the model
+
+```{r}
+dat$pfas_ID <- as.factor(dat$pfas_ID)
+m2 <- rma.mv(yi = lnRR,
+             V = var_lnRR, 
+             random = list(~1|pfas_ID,
+                           ~1|es_ID,
+                           ~1|study_ID),
+                 test = "t",
+                 data = dat)
+summary(m2) 
+i2_ml(m2)#heterogeneity: The I2 informs the proportion of the variance in observed effect is due to variance in true effects rather than sampling error
+```
+
+Let's add **progeny' sample type** as moderator in the model
+
+```{r}
+dat$sample_type_P <- as.factor(dat$sample_type_P)
+m3 <- rma.mv(yi = lnRR,
+             V = var_lnRR,
+             random = list(~1|sample_type_P,
+                           ~1|es_ID,
+                           ~1|study_ID),
+                 test = "t",
+                 data = dat)
+summary(m3) 
+i2_ml(m3)#heterogeneity: The I2 informs the proportion of the variance in observed effect is due to variance in true effects rather than sampling error
+```
+
+## **Intercept meta-analytical model**
+
+### Determine the random effect structure
+
+```{r}
+MA_all_rand_effects <- rma.mv(lnRR, var_lnRR, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
+              random = list(~1|study_ID, # Identity of the study
+                            ~1|species_ID, # Non-phylogenetic correlation between species
+                            ~1|pfas_ID, # Type of PFAS 
+                            ~1|es_ID), # Effect size identity 
+              test = "t", 
+              data = dat,
+              sparse = TRUE)
+summary(MA_all_rand_effects) # species_ID does not explain for any variance
+```
