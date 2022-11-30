@@ -572,9 +572,9 @@ model_results <-
 model_results
 
 orchaRd::orchard_plot(m1,
-                      mod = "Int", 
-                      data = "Int", 
-                      group = "Int",
+                      mod = "1", 
+                      data = dat, 
+                      group = "study_ID",
                       xlab = "lnRR", 
                       alpha=0.4,
                       angle = 45)
@@ -863,3 +863,44 @@ p4_egg
 
 #orchaRd::caterpillars(mr4_egg_res, mod="Int", xlab = "lnRR")
 ```
+
+###Save models
+```{r}
+save(mr1, mr1_egg, mr2, mr2_egg, mr3, mr3_egg, mr4, mr4_egg, file = here("Rdata", "models.RData"))
+```
+
+###Summary of models
+Because the models are saved, this code chunk can be used to see the models output without running the models
+```{r}
+load(here("RData", "models.RData"))
+summary(mr1)
+summary(mr1_egg)
+summary(mr2)
+summary(mr2_egg)
+summary(mr3)
+summary(mr3_egg)
+summary(mr4)
+summary(mr4_egg)
+```
+
+##Publication bias
+```{r}
+pb_model <- metafor::rma.mv(lnRR, 
+              var_lnRR,
+              mods = ~ year_publication,
+              random = list(~1|es_ID,
+                           ~1|study_ID),
+              data = dat)
+pb_bubble <- orchaRd::mod_results(pb_model,
+                                  mod = "year_publication",
+                                  group = "study_ID",
+                                  data = dat)
+
+orchaRd::bubble_plot(pb_bubble, 
+                     data = dat,
+                     group = "study_ID",
+                     mod = "year_publication",
+                     xlab = "Year", 
+                     legend.pos = "top.left")
+```
+
