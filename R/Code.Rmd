@@ -7,17 +7,17 @@ editor_options:
   chunk_output_type: console
 ---
 
-# Project
+# Project title
 
-Maternal PFAS transfer in wild birds: a systematic review and meta-analysis
+*Maternal PFAS transfer in wild birds: a systematic review and meta-analysis*
 
 # Purpose
 
-This .Rmd document provides the code we used for data processing and data visualization.
+This .Rmd document provides the code we used for data processing and visualization.
 
 # Data model
 
-We use a dm object to create a relational data model from our local data tables. Six data tables contain data extracted from the included studies. The six tables are named as follow:
+We use a dm object to create a relational data model from our local data tables. We extracted data from the included studies on six data tables:
 
 -   **study_info**
 
@@ -31,7 +31,11 @@ We use a dm object to create a relational data model from our local data tables.
 
 -   **measurements**
 
-```{r setup, include = FALSE}
+They are stored in [a repository on GitHub](https://github.com/ThisIsLorenzo/PFAS_MA_MaternalTransfer_WildBirds_Pilot/tree/main/Data)
+
+# Data processing
+
+```{r setup, include = FALSE, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE}
 # knitr setting
 knitr::opts_chunk$set(
   message = FALSE,
@@ -40,9 +44,7 @@ knitr::opts_chunk$set(
   cache = TRUE, 
   echo=TRUE
 )
-```
-
-```{r loading packages, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE}
+# Loading packages
 library(tidyverse)
 library(readr)
 library(ape, curl)
@@ -56,7 +58,7 @@ library(orchaRd)
 library(kableExtra)
 ```
 
-```{r loading data, include=FALSE}
+```{r loading data}
 st <- read_csv(here("Data", "study_info.csv"))
 sp <- read_csv(here("Data", "species_info.csv"))
 pfas <- read_csv(here("Data", "pfas_info.csv"))
@@ -65,7 +67,7 @@ sa <- read_csv(here("Data", "sample_info.csv"))
 me <- read_csv(here("Data", "measurement_info.csv"))
 ```
 
-```{r cleaning - removing unnecessary columns (i.e., "Timestamp" and comment columns)}
+```{r cleaning - removing unnecessary columns}
 st <- st %>% 
   select(-("Timestamp")) %>%
   select(-(ends_with("comment")))
@@ -123,13 +125,6 @@ data_dm_all_keys %>%
 ```{r integrity check}
 data_dm_all_keys %>% 
   dm_examine_constraints()
-```
-
-```{r merging all tables into one big table}
-# dm_joined <- 
-#   data_dm_all_keys %>% 
-#   dm_flatten_to_tbl(.start = me, .recursive = TRUE)
-# dm_joined
 ```
 
 The following chunk creates a new table that merges sa, co, and me. me includes only the variables we need to calculate effect sizes (i.e., min, max, median, etc. are removed)
@@ -270,6 +265,7 @@ ntable <- map_dfr(list_dat, wide_table)
 ```
 
 Create effect sizes column and tidy data
+
 ```{r}
 ntable <- dplyr::mutate(ntable, es_ID = as.vector(001 : 412)) # add esID column
 ntable$es_ID <-  sub("(.{1})", "es_\\1", ntable$es_ID) #add es_IDs
@@ -293,14 +289,15 @@ ntable <-
 ```
 
 Remove effect size measurements with NA in the mean concentration in the adult OR progeny.
+
 ```{r}
 ntable <- 
   ntable %>% 
   dplyr::filter(is.na(mean_arithmetic_A)=="FALSE" & is.na(mean_arithmetic_P)=="FALSE")
 ```
 
-
 # Sensitivity analysis
+
 We'll create two data sets to run a sensitivity analysis. The first data set will include all the data. The second will drop out data that are from pooled samples (i.e., from adult male + female pooled data) and/or data from adults and progeny that come from different nests.
 
 ```{r}
@@ -310,13 +307,13 @@ ntable2 <-
 ```
 
 Remove all effect sizes where concentration in the adult OR progeny is below the limit of detection/quantification
+
 ```{r}
 # Remove es_IDs where limit_type_A OR limit_type_P is != NA
 ntable3 <- 
   ntable %>% 
   dplyr::filter(if_all(c(limit_type_A, limit_type_P), ~is.na(.)))
 ```
-
 
 #Add the ntable to the dm object
 
@@ -346,6 +343,7 @@ data_dm_all_keys %>%
 ```
 
 Mergin the dm tables in a wide table
+
 ```{r merging all tables into one big table}
 nt <-
   data_dm_all_keys %>%
@@ -417,9 +415,7 @@ plot(tree)
 
 # Effect sizes
 
-Calculate effect sizes
-The average coefficient of variation in PFAS concentration was calculated for each study and treatment, according to *Doncaster and Spake (2018) Correction for bias in meta-analysis of little-replicated studies. Methods in Ecology and Evolution; 9:634-644*. 
-Then, these values were averaged across studies and used to calculate the lnRR corrected for small sample sizes (for formula, see the `lnRR_func` above)
+Calculate effect sizes The average coefficient of variation in PFAS concentration was calculated for each study and treatment, according to *Doncaster and Spake (2018) Correction for bias in meta-analysis of little-replicated studies. Methods in Ecology and Evolution; 9:634-644*. Then, these values were averaged across studies and used to calculate the lnRR corrected for small sample sizes (for formula, see the `lnRR_func` above)
 
 ```{r Calculating lnRR and Variance}
 # Calculate the squared coefficient of variation for adult and progeny groups
@@ -607,30 +603,31 @@ We can now draw a comparable caterpillar plot by using the function caterpillars
 
 ## Meta-regression model
 
-###Bird species
-Now, we want to fit a meta-regression model to test whether the moderator "species_ID" impacts our results on the mean and variance.
+###Bird species Now, we want to fit a meta-regression model to test whether the moderator "species_ID" impacts our results on the mean and variance.
 
 ```{r}
-mr1 <- rma.mv(lnRR, 
-              var_lnRR,
-              mods = ~ species_ID,
-              random = list(~1|es_ID,
-                           ~1|study_ID),
-              test = "t",
-              data = dat)
+# mr1 <- rma.mv(lnRR, 
+#               var_lnRR,
+#               mods = ~ species_ID,
+#               random = list(~1|es_ID,
+#                            ~1|study_ID),
+#               test = "t",
+#               data = dat)
 #summary(mr1)
 
-mr1_egg <- rma.mv(lnRR, 
-              var_lnRR,
-              mods = ~ species_ID,
-              random = list(~1|es_ID,
-                           ~1|study_ID),
-              test = "t",
-              data = dplyr::filter(dat,
-                                   life_stage_P == "egg"))
+# mr1_egg <- rma.mv(lnRR, 
+#               var_lnRR,
+#               mods = ~ species_ID,
+#               random = list(~1|es_ID,
+#                            ~1|study_ID),
+#               test = "t",
+#               data = dplyr::filter(dat,
+#                                    life_stage_P == "egg"))
 #summary(mr1_egg)
 ```
+
 Again, we can create a table of results and draw plots
+
 ```{r}
 mr1_res <- orchaRd::mod_results(mr1, 
                              mod = "species_ID",
@@ -670,22 +667,22 @@ p1_egg
 #orchaRd::caterpillars(mr1_egg_res, mod="Int", xlab = "lnRR")
 ```
 
-
 ###PFAS type - carboxylic acids
+
 ```{r}
-mr2 <- rma.mv(lnRR, 
-              var_lnRR,
-              mods = ~ pfas_ID,
-              random = list(~1|es_ID,
-                           ~1|study_ID),
-              test = "t",
-              data = dplyr::filter(dat,
-                                   functional_group == "Carboxylate / carboxylic acid"))
+# mr2 <- rma.mv(lnRR, 
+#               var_lnRR,
+#               mods = ~ carbon_chain_length,
+#               random = list(~1|es_ID,
+#                            ~1|study_ID),
+#               test = "t",
+#               data = dplyr::filter(dat,
+#                                    functional_group == "Carboxylate / carboxylic acid"))
 
 #summary(mr2)
 
 mr2_res <- orchaRd::mod_results(mr2, 
-                             mod = "pfas_ID",
+                             mod = "carbon_chain_length",
                              data = dplyr::filter(dat,
                                    functional_group == "Carboxylate / carboxylic acid"),
                              group = "study_ID",
@@ -705,19 +702,19 @@ p2
 
 #Same model but only on eggs:
 
-mr2_egg <- rma.mv(lnRR, 
-              var_lnRR,
-              mods = ~ pfas_ID,
-              random = list(~1|es_ID,
-                           ~1|study_ID),
-              test = "t",
-              data = dplyr::filter(dat,
-                                   functional_group == "Carboxylate / carboxylic acid" & life_stage_P == "egg"))
+# mr2_egg <- rma.mv(lnRR, 
+#               var_lnRR,
+#               mods = ~ carbon_chain_length,
+#               random = list(~1|es_ID,
+#                            ~1|study_ID),
+#               test = "t",
+#               data = dplyr::filter(dat,
+#                                    functional_group == "Carboxylate / carboxylic acid" & life_stage_P == "egg"))
 
 #summary(mr2_egg)
 
 mr2_egg_res <- orchaRd::mod_results(mr2_egg, 
-                             mod = "pfas_ID",
+                             mod = "carbon_chain_length",
                              data = dplyr::filter(dat,
                                    functional_group == "Carboxylate / carboxylic acid" & life_stage_P == "egg"),
                              group = "study_ID",
@@ -737,22 +734,23 @@ p2_egg
 ```
 
 ###PFAS type - sulfonic acids
+
 ```{r}
-mr3 <- rma.mv(lnRR, 
-              var_lnRR,
-              mods = ~ pfas_ID,
-              random = list(~1|es_ID,
-                           ~1|study_ID),
-              test = "t",
-              data = dplyr::filter(dat,
-                                   functional_group == "Sulfonate / sulfonic acid"))
+# mr3 <- rma.mv(lnRR, 
+#               var_lnRR,
+#               mods = ~ carbon_chain_length,
+#               random = list(~1|es_ID,
+#                            ~1|study_ID),
+#               test = "t",
+#               data = dplyr::filter(dat,
+#                                    functional_group == "Sulfonate / sulfonic acid"))
 
 #summary(mr3)
 
 
 
 mr3_res <- orchaRd::mod_results(mr3, 
-                             mod = "pfas_ID",
+                             mod = "carbon_chain_length",
                              data = dplyr::filter(dat,
                                    functional_group == "Sulfonate / sulfonic acid"),
                              group = "study_ID",
@@ -774,19 +772,19 @@ p3
 
 # Same model but only on eggs:
 
-mr3_egg <- rma.mv(lnRR, 
-              var_lnRR,
-              mods = ~ pfas_ID,
-              random = list(~1|es_ID,
-                           ~1|study_ID),
-              test = "t",
-              data = dplyr::filter(dat,
-                                   functional_group == "Sulfonate / sulfonic acid" & life_stage_P == "egg"))
+# mr3_egg <- rma.mv(lnRR, 
+#               var_lnRR,
+#               mods = ~ carbon_chain_length,
+#               random = list(~1|es_ID,
+#                            ~1|study_ID),
+#               test = "t",
+#               data = dplyr::filter(dat,
+#                                    functional_group == "Sulfonate / sulfonic acid" & life_stage_P == "egg"))
 
 #summary(mr3_egg)
 
 mr3_egg_res <- orchaRd::mod_results(mr3_egg, 
-                             mod = "pfas_ID",
+                             mod = "carbon_chain_length",
                              data = dplyr::filter(dat,
                                    functional_group == "Sulfonate / sulfonic acid" & life_stage_P == "egg"),
                              group = "study_ID",
@@ -804,14 +802,15 @@ p3_egg
 ```
 
 ###Seabirds VS non-seabirds
+
 ```{r}
-mr4 <- rma.mv(lnRR, 
-              var_lnRR,
-              mods = ~ seabird,
-              random = list(~1|es_ID,
-                           ~1|study_ID),
-              test = "t",
-              data = dat)
+# mr4 <- rma.mv(lnRR, 
+#               var_lnRR,
+#               mods = ~ seabird,
+#               random = list(~1|es_ID,
+#                            ~1|study_ID),
+#               test = "t",
+#               data = dat)
 
 #summary(mr4)
 
@@ -835,13 +834,13 @@ p4
 
 # Same model but only on eggs:
 
-mr4_egg <- rma.mv(lnRR, 
-              var_lnRR,
-              mods = ~ seabird,
-              random = list(~1|es_ID,
-                           ~1|study_ID),
-              test = "t",
-              data = dplyr::filter(dat, life_stage_P == "egg"))
+# mr4_egg <- rma.mv(lnRR, 
+#               var_lnRR,
+#               mods = ~ seabird,
+#               random = list(~1|es_ID,
+#                            ~1|study_ID),
+#               test = "t",
+#               data = dplyr::filter(dat, life_stage_P == "egg"))
 
 #summary(mr4_egg)
 
@@ -865,25 +864,30 @@ p4_egg
 ```
 
 ###Save models
+
 ```{r}
-save(mr1, mr1_egg, mr2, mr2_egg, mr3, mr3_egg, mr4, mr4_egg, file = here("Rdata", "models.RData"))
+#save(mr1, mr1_egg, mr2, mr2_egg, mr3, mr3_egg, mr4, mr4_egg, file = here("Rdata", "models.RData"))
+
+#save(dat, file = "~/PhD/GitHub/PFAS_MA_MaternalTransfer_WildBirds_PILOT/RData/dat.RData")
 ```
 
-###Summary of models
+# LOADING
 Because the models are saved, this code chunk can be used to see the models output without running the models
+
 ```{r}
 load(here("RData", "models.RData"))
-summary(mr1)
-summary(mr1_egg)
-summary(mr2)
-summary(mr2_egg)
-summary(mr3)
-summary(mr3_egg)
-summary(mr4)
-summary(mr4_egg)
+load(here("RData", "dat.RData"))
+# summary(mr1)
+# summary(mr1_egg)
+# summary(mr2)
+# summary(mr2_egg)
+# summary(mr3)
+# summary(mr3_egg)
+# summary(mr4)
+# summary(mr4_egg)
 ```
 
-##Publication bias
+#Publication bias
 ```{r}
 pb_model <- metafor::rma.mv(lnRR, 
               var_lnRR,
@@ -903,4 +907,3 @@ orchaRd::bubble_plot(pb_bubble,
                      xlab = "Year", 
                      legend.pos = "top.left")
 ```
-
