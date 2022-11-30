@@ -118,7 +118,6 @@ data_dm_all_keys
 ```{r visualization}
 data_dm_all_keys %>% 
   dm_draw()
-
 ```
 
 ```{r integrity check}
@@ -268,7 +267,10 @@ res
 
 # this applies wide_table data to every item in this list
 ntable <- map_dfr(list_dat, wide_table)
+```
 
+Create effect sizes column and tidy data
+```{r}
 ntable <- dplyr::mutate(ntable, es_ID = as.vector(001 : 412)) # add esID column
 ntable$es_ID <-  sub("(.{1})", "es_\\1", ntable$es_ID) #add es_IDs
 # ntable <- ntable[, c(27, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26)] # move es_ID column at the beginning
@@ -278,12 +280,11 @@ ntable <- dplyr::mutate(ntable, species_ID =  ntable$species_ID_A) # add species
 ntable <- dplyr::mutate(ntable, pfas_ID =  ntable$pfas_ID_A) # add pfas_ID column
 
 ntable <- dplyr::select(ntable, -c('study_ID_A', 'study_ID_P', 'species_ID_A', 'species_ID_P', 'pfas_ID_A', 'pfas_ID_P'))
+```
 
-# Remove es_IDs where limit_type_A OR limit_type_P is != NA
-ntable_no_limits <- 
-  ntable %>% 
-  dplyr::filter(if_all(c(limit_type_A, limit_type_P), ~is.na(.)))
+Remove effect sizes where both adult and progeny concentrations were under the limit of detection or quantification. This was an assumption made in the pre-registration.
 
+```{r}
 # Remove es_IDs where both limit_type_A AND limit_type_P are != NA
 ntable <- 
   ntable %>% 
@@ -291,15 +292,24 @@ ntable <-
                is.na(limit_type_P) == "TRUE")
 ```
 
-Remove effect sized from pooled (male+female) data
-
 ```{r}
-# ntable <-
-#   ntable %>%
-#   dplyr::filter(data_pooled == "No")
+# Remove es_IDs where limit_type_A OR limit_type_P is != NA
+ntable_no_limits <- 
+  ntable %>% 
+  dplyr::filter(if_all(c(limit_type_A, limit_type_P), ~is.na(.)))
 ```
 
-Add the ntable to the dm object
+# Sensitivity analysis
+We'll create two data sets to run a sensitivity analysis. The first data set will include all the data. The second will drop out data that are from pooled samples (i.e., from adult male + female pooled data)
+
+```{r}
+ntable2 <-
+  ntable %>%
+  dplyr::filter(data_pooled == "No")
+```
+
+
+#Add the ntable to the dm object
 
 ```{r adding the ntable to the dm object, include=FALSE}
 nt <- ntable
@@ -481,6 +491,36 @@ kable(summary(dat), "html") %>%
 
 ...
 
+## Determine the random effect structure
+
+Now we want to assess what variable explain for variance in the model.
+
+```{r}
+# MA_all_rand_effects <- rma.mv(lnRR, var_lnRR, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
+#               random = list(~1|study_ID, # Identity of the study
+#                             ~1|Phylogeny, # Phylogenetic correlation between species
+#                             ~1|pfas_ID, # Type of PFAS 
+#                             ~1|es_ID, # Effect size identity 
+#                             ~1|sample_type_A,
+#                             ~1|sample_type_P,
+#                             ~1|sampling_year_A,
+#                             ~1|sampling_year_P,
+#                             ~1|sampling_month_A,
+#                             ~1|sampling_month_P,
+#                             ~1|breeding_stage,
+#                             ~1|laying_order,
+#                             ~1|developmental_stage_A,
+#                             ~1|developmental_stage_P,
+#                             ~1|body_weight_mean,
+#                             ~1|egg_weight_mean
+#                             ), 
+#               R = list(Phylogeny = cor_tree), # Assign the 'Phylogeny' argument to the phylogenetic variance-covariance matrix
+#               test = "t", 
+#               data = dat,
+#               sparse = TRUE)
+# summary(MA_all_rand_effects) # Phylogeny does not explain for any variance
+```
+
 ## Intercept meta-analytical model
 
 Now that we calculated the effect size measures, we fit an intercept only, meta-analytic model
@@ -499,6 +539,9 @@ m1 <- rma.mv(yi = lnRR,
 summary(m1) 
 i2_ml(m1)
 ```
+
+
+
 
 ##Table of results and orchard and caterpillar plot.
 
@@ -626,40 +669,3 @@ orchaRd::caterpillars(res3, mod="Int", xlab = "lnRR")
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### Determine the random effect structure
-
-```{r}
-MA_all_rand_effects <- rma.mv(lnRR, var_lnRR, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
-              random = list(~1|study_ID, # Identity of the study
-                            ~1|Phylogeny, # Phylogenetic correlation between species
-                            ~1|pfas_ID, # Type of PFAS 
-                            ~1|es_ID, # Effect size identity 
-                            ~1|sample_type_A,
-                            ~1|sample_type_P), 
-              R = list(Phylogeny = cor_tree),
-              test = "t", 
-              data = dat,
-              sparse = TRUE)
-summary(MA_all_rand_effects) # Phylogeny does not explain for any variance
-```
