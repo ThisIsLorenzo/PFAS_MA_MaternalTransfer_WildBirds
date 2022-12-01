@@ -923,3 +923,18 @@ Here we run each model using data for sensitivity analysis (dat2 and dat3).
 
 ```
 
+
+# Check extreme lnRR values
+```{r}
+extreme_values <- 
+  dat %>%
+  dplyr::filter(lnRR < -4 | lnRR > 4)
+colnames(extreme_values)
+extreme_values <- 
+  extreme_values[, c(55, 56, 1 : 54)]
+view(extreme_values)
+extreme_values <- 
+  extreme_values %>% 
+  dplyr::arrange(desc(lnRR))
+```
+
