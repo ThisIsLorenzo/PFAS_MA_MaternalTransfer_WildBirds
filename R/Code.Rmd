@@ -215,6 +215,8 @@ progeny_dat <- dat[pos_progeny, ]
 #ndat<-as.data.frame(cbind(adult_dat, chick_dat))
 
 ndat <- data.frame(
+           measurement_ID_A = adult_dat[["measurement_ID"]],
+           measurement_ID_P = progeny_dat[[ "measurement_ID"]],
            mean_arithmetic_A = adult_dat[["mean_arithmetic"]],
            mean_arithmetic_P =  progeny_dat[[ "mean_arithmetic"]],
            SD_A = adult_dat[["SD"]],
@@ -338,10 +340,10 @@ The `lnRR_func` function is here used to calculate a log response ratio (lnRR) a
 
 ```{r function to calculate effect size}
 #Changing columns names to make them shorter
-colnames(nt)[1] <- "mean_A"
-colnames(nt)[2] <- "mean_P"
-colnames(nt)[3] <- "sd_A"
-colnames(nt)[4] <- "sd_P"
+colnames(nt)[3] <- "mean_A"
+colnames(nt)[4] <- "mean_P"
+colnames(nt)[5] <- "sd_A"
+colnames(nt)[6] <- "sd_P"
 
 # Custom function to calculate the lnRR 
 lnRR_func <- function(mean_A, n_A, mean_P, n_P, aCV2a, aCV2p){
@@ -401,10 +403,10 @@ Calculate effect sizes The average coefficient of variation in PFAS concentratio
 ```{r Calculating lnRR and Variance}
 # Calculate the squared coefficient of variation for adult and progeny groups
 
-colnames(nt2)[1] <- "mean_A"
-colnames(nt2)[2] <- "mean_P"
-colnames(nt2)[3] <- "sd_A"
-colnames(nt2)[4] <- "sd_P"
+# colnames(nt2)[3] <- "mean_A"
+# colnames(nt2)[4] <- "mean_P"
+# colnames(nt2)[5] <- "sd_A"
+# colnames(nt2)[6] <- "sd_P"
 
 aCV2 <- nt2 %>% 
   group_by(study_ID) %>%
@@ -538,8 +540,8 @@ Now we want to assess what variable explain for variance in the model.
 # MA_all_rand_effects <- rma.mv(lnRR, var_lnRR, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
 #               random = list(~1|study_ID, # Identity of the study
 #                             ~1|Phylogeny, # Phylogenetic correlation between species
-#                             ~1|pfas_ID, # Type of PFAS 
-#                             ~1|es_ID, # Effect size identity 
+#                             ~1|pfas_ID, # Type of PFAS
+#                             ~1|es_ID, # Effect size identity
 #                             ~1|sample_type_A,
 #                             ~1|sample_type_P,
 #                             ~1|sampling_year_A,
@@ -552,12 +554,75 @@ Now we want to assess what variable explain for variance in the model.
 #                             ~1|developmental_stage_P,
 #                             ~1|body_weight_mean,
 #                             ~1|egg_weight_mean
-#                             ), 
+#                             ),
 #               R = list(Phylogeny = cor_tree), # Assign the 'Phylogeny' argument to the phylogenetic variance-covariance matrix
-#               test = "t", 
+#               test = "t",
 #               data = dat,
 #               sparse = TRUE)
 # summary(MA_all_rand_effects) # Phylogeny does not explain for any variance
+
+library(clubSandwich)
+VCV <- impute_covariance_matrix(dat$var_lnRR, cluster = dat$measurement_ID_A, r = 0.5)
+
+mod <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
+              random = list(~1|study_ID, # Identity of the study
+                            ~1|Phylogeny, # Phylogenetic correlation between species
+                            ~1|species_ID,
+                            ~1|pfas_ID, # Type of PFAS
+                            ~1|es_ID # Effect size identity
+              ),
+              R = list(Phylogeny = cor_tree), # Assign the 'Phylogeny' argument to the phylogenetic variance-covariance matrix
+              test = "t",
+              data = dat,
+              sparse = TRUE)
+
+summary(mod)
+
+i2_ml(mod)
+
+# a bit regression here
+
+
+mod1 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
+              mod = ~ sample_type_P,# + sample_type_A,
+              random = list(~1|study_ID, # Identity of the study
+                            #~1|Phylogeny, # Phylogenetic correlation between species
+                            ~1|species_ID,
+                            ~1|pfas_ID, # Type of PFAS
+                            ~1|es_ID # Effect size identity
+              ),
+              #R = list(Phylogeny = cor_tree), # Assign the 'Phylogeny' argument to the phylogenetic variance-covariance matrix
+              test = "t",
+              data = dat,
+              sparse = TRUE)
+
+summary(mod1)
+
+r2_ml(mod1)
+
+orchard_plot(mod1, mod = "sample_type_P", group = "study_ID", data = dat, xlab = "lnRR")
+
+
+mod2 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
+              mod = ~ sample_type_A,
+              random = list(~1|study_ID, # Identity of the study
+                            #~1|Phylogeny, # Phylogenetic correlation between species
+                            ~1|species_ID,
+                            ~1|pfas_ID, # Type of PFAS
+                            ~1|es_ID # Effect size identity
+              ),
+              #R = list(Phylogeny = cor_tree), # Assign the 'Phylogeny' argument to the phylogenetic variance-covariance matrix
+              test = "t",
+              data = dat,
+              sparse = TRUE)
+
+summary(mod2)
+
+r2_ml(mod2)
+
+orchard_plot(mod2, mod = "sample_type_A", group = "study_ID", data = dat, xlab = "lnRR")
+
+
 ```
 
 ## Intercept meta-analytical model
@@ -627,7 +692,7 @@ We can now draw a comparable caterpillar plot by using the function caterpillars
 ###Bird species
 Now, we want to fit a meta-regression model to test whether the moderator "species_ID" impacts our results on the mean and variance.
 
-```{r}
+```{r, eval = FALSE}
 # mr1 <- rma.mv(lnRR,
 #               var_lnRR,
 #               mods = ~ species_ID,
@@ -692,16 +757,16 @@ p1_egg
 ###PFAS type - carboxylic acids
 
 ```{r}
-# mr2 <- rma.mv(lnRR,
-#               var_lnRR,
-#               mods = ~ carbon_chain_length,
-#               random = list(~1|es_ID,
-#                            ~1|study_ID),
-#               test = "t",
-#               data = dplyr::filter(dat,
-#                                    functional_group == "Carboxylate / carboxylic acid"))
+mr2 <- rma.mv(lnRR,
+              var_lnRR,
+              mods = ~ carbon_chain_length,
+              random = list(~1|es_ID,
+                           ~1|study_ID),
+              test = "t",
+              data = dplyr::filter(dat,
+                                   functional_group == "Carboxylate / carboxylic acid"))
 
-#summary(mr2)
+summary(mr2)
 
 mr2_res <- orchaRd::mod_results(mr2, 
                              mod = "carbon_chain_length",
