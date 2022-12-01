@@ -924,7 +924,17 @@ Here we run each model using data for sensitivity analysis (dat2 and dat3).
 ```
 
 
-# Check extreme lnRR values
+
+
+
+
+
+
+
+
+# tries
+
+Check extreme lnRR values
 ```{r}
 extreme_values <- 
   dat %>%
@@ -933,8 +943,20 @@ colnames(extreme_values)
 extreme_values <- 
   extreme_values[, c(55, 56, 1 : 54)]
 view(extreme_values)
-extreme_values <- 
-  extreme_values %>% 
-  dplyr::arrange(desc(lnRR))
+extreme_values <-
+  extreme_values %>%
+  dplyr::select(-c(mean_A, mean_P, sd_A, sd_P, n_A, n_P))
+```
+
+```{r}
+ggplot(data=dplyr::filter(dat, life_stage_P == "egg"),
+       aes(x=sample_type_P, y=lnRR, color = sample_type_A)) +
+  geom_point(size = 5) +
+  theme_minimal()
+```
+
+```{r}
+boxplot( lnRR ~ sample_type_P, data = dplyr::filter(dat, life_stage_P == "egg"),
+        col = c("green","yellow","purple"))
 ```
 
