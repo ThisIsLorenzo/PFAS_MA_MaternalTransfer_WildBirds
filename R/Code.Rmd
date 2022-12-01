@@ -288,31 +288,12 @@ ntable <-
                is.na(limit_type_P) == "TRUE")
 ```
 
-Remove effect size measurements with NA in the mean concentration in the adult OR progeny.
+Remove effect size measurements with NA in the mean concentration in the adult OR progeny. This is necessary for successful analysis because means cannot be NA.
 
 ```{r}
 ntable <- 
   ntable %>% 
-  dplyr::filter(is.na(mean_arithmetic_A)=="FALSE" & is.na(mean_arithmetic_P)=="FALSE")
-```
-
-# Sensitivity analysis
-
-We'll create two data sets to run a sensitivity analysis. The first data set will include all the data. The second will drop out data that are from pooled samples (i.e., from adult male + female pooled data) and/or data from adults and progeny that come from different nests.
-
-```{r}
-ntable2 <-
-  ntable %>%
-  dplyr::filter(data_pooled == "No" & nest == "Yes")
-```
-
-Remove all effect sizes where concentration in the adult OR progeny is below the limit of detection/quantification
-
-```{r}
-# Remove es_IDs where limit_type_A OR limit_type_P is != NA
-ntable3 <- 
-  ntable %>% 
-  dplyr::filter(if_all(c(limit_type_A, limit_type_P), ~is.na(.)))
+  dplyr::filter(is.na(mean_arithmetic_A) == "FALSE" & is.na(mean_arithmetic_P) == "FALSE")
 ```
 
 #Add the ntable to the dm object
@@ -453,7 +434,29 @@ dat <- nt2 %>%
 dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
 ```
 
-## Distribution of effect sizes
+# Sensitivity analysis - Data
+
+We'll create three data sets to run a sensitivity analysis. 
+The first data set (i.e., dat) will include all the data. 
+The second (i.e., dat2) one will drop out data that are from pooled samples (i.e., from adult male + female pooled data) and/or data from adults and progeny that come from different nests.
+The third one (i.e., dat3) will drop out all effect size measures where the PFAS concentration in the adult OR progeny is below the limit of detection/quantification.
+
+```{r}
+# dat2 <-
+#   dat %>%
+#   dplyr::filter(data_pooled == "No" & nest == "Yes")
+```
+
+Remove all effect sizes where concentration in the adult OR progeny is below the limit of detection/quantification
+
+```{r}
+# Remove es_IDs where limit_type_A OR limit_type_P is != NA
+# dat3 <- 
+#   dat2 %>% 
+#   dplyr::filter(if_all(c(limit_type_A, limit_type_P), ~is.na(.)))
+```
+
+# Distribution of effect sizes
 
 ```{r, fig.height=8, fig.width=15}
 # mean 
@@ -468,7 +471,7 @@ dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
 #forest(dat$lnRR, dat$var_lnRR)
 ```
 
-## Table of sample sizes
+# Table of sample sizes
 
 ```{r}
 table_sample_sizes <- dat %>% 
@@ -503,6 +506,24 @@ kable(table_sample_sizes) %>%
 kable(summary(dat), "html") %>% 
   kable_styling("striped", position = "left") %>% 
     scroll_box(width = "100%", height = "500px")
+```
+
+# LOADING
+Because the models are saved, this code chunk can be used to see the models output without running the models
+
+```{r}
+load(here("RData", "models.RData"))
+load(here("RData", "dat.RData"))
+load(here("RData", "dat2.RData"))
+load(here("RData", "dat3.RData"))
+# summary(mr1)
+# summary(mr1_egg)
+# summary(mr2)
+# summary(mr2_egg)
+# summary(mr3)
+# summary(mr3_egg)
+# summary(mr4)
+# summary(mr4_egg)
 ```
 
 # Meta-analysis {.tabset}
@@ -546,26 +567,26 @@ Now that we calculated the effect size measures, we fit an intercept only, meta-
 read <https://daniel1noble.github.io/orchaRd/> for more details on making pretty plots.
 
 ```{r}
-m1 <- rma.mv(yi = lnRR,
-             V = var_lnRR,
-             random = list(~1|es_ID,
-                           ~1|study_ID),
-             test = "t",
-             data = dat)
-#summary(m1) 
-#i2_ml(m1)
+# m1 <- rma.mv(yi = lnRR,
+#              V = var_lnRR,
+#              random = list(~1|es_ID,
+#                            ~1|study_ID),
+#              test = "t",
+#              data = dat)
+# summary(m1)
+# i2_ml(m1)
 ```
 
 ##Table of results and orchard and caterpillar plot.
 
 ```{r}
-model_results <- 
+m1_res <- 
   mod_results(m1, 
               mod = "1",
               at = NULL, 
               data = dat, 
               group = "study_ID")
-model_results
+m1_res
 
 orchaRd::orchard_plot(m1,
                       mod = "1", 
@@ -581,7 +602,7 @@ Use i2_sn function to obtain the total I\^2
 ```{r}
 I2 <- orchaRd::i2_ml(m1)
 
-orchaRd::orchard_plot(model_results,
+orchaRd::orchard_plot(m1_res,
                       mod="1",
                       xlab = "lnRR") + 
   annotate(geom="text",
@@ -603,10 +624,11 @@ We can now draw a comparable caterpillar plot by using the function caterpillars
 
 ## Meta-regression model
 
-###Bird species Now, we want to fit a meta-regression model to test whether the moderator "species_ID" impacts our results on the mean and variance.
+###Bird species
+Now, we want to fit a meta-regression model to test whether the moderator "species_ID" impacts our results on the mean and variance.
 
 ```{r}
-# mr1 <- rma.mv(lnRR, 
+# mr1 <- rma.mv(lnRR,
 #               var_lnRR,
 #               mods = ~ species_ID,
 #               random = list(~1|es_ID,
@@ -615,7 +637,7 @@ We can now draw a comparable caterpillar plot by using the function caterpillars
 #               data = dat)
 #summary(mr1)
 
-# mr1_egg <- rma.mv(lnRR, 
+# mr1_egg <- rma.mv(lnRR,
 #               var_lnRR,
 #               mods = ~ species_ID,
 #               random = list(~1|es_ID,
@@ -670,7 +692,7 @@ p1_egg
 ###PFAS type - carboxylic acids
 
 ```{r}
-# mr2 <- rma.mv(lnRR, 
+# mr2 <- rma.mv(lnRR,
 #               var_lnRR,
 #               mods = ~ carbon_chain_length,
 #               random = list(~1|es_ID,
@@ -702,7 +724,7 @@ p2
 
 #Same model but only on eggs:
 
-# mr2_egg <- rma.mv(lnRR, 
+# mr2_egg <- rma.mv(lnRR,
 #               var_lnRR,
 #               mods = ~ carbon_chain_length,
 #               random = list(~1|es_ID,
@@ -736,7 +758,7 @@ p2_egg
 ###PFAS type - sulfonic acids
 
 ```{r}
-# mr3 <- rma.mv(lnRR, 
+# mr3 <- rma.mv(lnRR,
 #               var_lnRR,
 #               mods = ~ carbon_chain_length,
 #               random = list(~1|es_ID,
@@ -772,7 +794,7 @@ p3
 
 # Same model but only on eggs:
 
-# mr3_egg <- rma.mv(lnRR, 
+# mr3_egg <- rma.mv(lnRR,
 #               var_lnRR,
 #               mods = ~ carbon_chain_length,
 #               random = list(~1|es_ID,
@@ -804,7 +826,7 @@ p3_egg
 ###Seabirds VS non-seabirds
 
 ```{r}
-# mr4 <- rma.mv(lnRR, 
+# mr4 <- rma.mv(lnRR,
 #               var_lnRR,
 #               mods = ~ seabird,
 #               random = list(~1|es_ID,
@@ -834,7 +856,7 @@ p4
 
 # Same model but only on eggs:
 
-# mr4_egg <- rma.mv(lnRR, 
+# mr4_egg <- rma.mv(lnRR,
 #               var_lnRR,
 #               mods = ~ seabird,
 #               random = list(~1|es_ID,
@@ -866,25 +888,11 @@ p4_egg
 ###Save models
 
 ```{r}
-#save(mr1, mr1_egg, mr2, mr2_egg, mr3, mr3_egg, mr4, mr4_egg, file = here("Rdata", "models.RData"))
-
-#save(dat, file = "~/PhD/GitHub/PFAS_MA_MaternalTransfer_WildBirds_PILOT/RData/dat.RData")
-```
-
-# LOADING
-Because the models are saved, this code chunk can be used to see the models output without running the models
-
-```{r}
-load(here("RData", "models.RData"))
-load(here("RData", "dat.RData"))
-# summary(mr1)
-# summary(mr1_egg)
-# summary(mr2)
-# summary(mr2_egg)
-# summary(mr3)
-# summary(mr3_egg)
-# summary(mr4)
-# summary(mr4_egg)
+# save(m1, m1_res, mr1, mr1_egg, mr2, mr2_egg, mr3, mr3_egg, mr4, mr4_egg, file = here("Rdata", "models.RData"))
+# 
+# save(dat, file = "~/PhD/GitHub/PFAS_MA_MaternalTransfer_WildBirds_PILOT/RData/dat.RData")
+# save(dat2, file = "~/PhD/GitHub/PFAS_MA_MaternalTransfer_WildBirds_PILOT/RData/dat2.RData")
+# save(dat3, file = "~/PhD/GitHub/PFAS_MA_MaternalTransfer_WildBirds_PILOT/RData/dat3.RData")
 ```
 
 #Publication bias
@@ -907,3 +915,11 @@ orchaRd::bubble_plot(pb_bubble,
                      xlab = "Year", 
                      legend.pos = "top.left")
 ```
+
+
+# Sensitivity analysis - Models
+Here we run each model using data for sensitivity analysis (dat2 and dat3).
+```{r}
+
+```
+
