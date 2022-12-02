@@ -35,7 +35,7 @@ They are stored in [a repository on GitHub](https://github.com/ThisIsLorenzo/PFA
 
 # Data processing
 
-```{r setup, include = FALSE, message = FALSE, echo = TRUE, eval = TRUE, warning = FALSE}
+```{r setup, eval = TRUE, include = TRUE, message = FALSE, echo = TRUE,  warning = FALSE}
 # knitr setting
 knitr::opts_chunk$set(
   message = FALSE,
@@ -44,21 +44,31 @@ knitr::opts_chunk$set(
   cache = TRUE, 
   echo=TRUE
 )
-# Loading packages
-library(tidyverse)
-library(readr)
-library(ape, curl)
-library(rotl)
-library(here)
-library(dm)
-library(dplyr)
-library(metafor)
-library(meta)
-library(orchaRd)
-library(kableExtra)
+
+rm(list = ls())
 ```
 
-```{r loading data}
+
+```{r setup, results = 'hide'}
+# Loading packages
+knitr::opts_chunk$set(echo = TRUE)
+
+pacman::p_load(tidyverse,
+               readr,
+               ape,
+               curl,
+               rotl,
+               here,
+               dm,
+               dplyr,
+               metafor,
+               meta,
+               orchaRd,
+               kableExtra,
+               clubSandwich)
+```
+
+```{r loading data, results = 'hide'}
 st <- read_csv(here("Data", "study_info.csv"))
 sp <- read_csv(here("Data", "species_info.csv"))
 pfas <- read_csv(here("Data", "pfas_info.csv"))
@@ -67,7 +77,7 @@ sa <- read_csv(here("Data", "sample_info.csv"))
 me <- read_csv(here("Data", "measurement_info.csv"))
 ```
 
-```{r cleaning - removing unnecessary columns}
+```{r cleaning data tables, results = 'hide'}
 st <- st %>% 
   select(-("Timestamp")) %>%
   select(-(ends_with("comment")))
@@ -88,14 +98,14 @@ me <- me %>%
   select(-(ends_with("comment")))
 ```
 
-```{r adding tables to the dm object, include=FALSE}
+```{r adding tables to the dm object, results = 'hide'}
 data_dm_no_keys <- dm(st, sp, pfas, co, sa, me)
 data_dm_no_keys
 data_dm_no_keys$st
 data_dm_no_keys[c("st", "co")]
 ```
 
-```{r defining primary keys}
+```{r defining primary keys, results = 'hide'}
 data_dm_only_pks <- data_dm_no_keys %>% 
   dm_add_pk(table = st, columns = study_ID) %>% 
   dm_add_pk(sp, species_ID) %>% 
@@ -106,7 +116,7 @@ data_dm_only_pks <- data_dm_no_keys %>%
 data_dm_only_pks
 ```
 
-```{r defining foreign keys}
+```{r defining foreign keys, results = 'hide'}
 data_dm_all_keys <- 
   data_dm_only_pks %>% 
   dm_add_fk(table = co, columns = study_ID, ref_table = st) %>% 
@@ -117,12 +127,12 @@ data_dm_all_keys <-
 data_dm_all_keys
 ```
 
-```{r visualization}
+```{r visualization, results = 'hide', include = FALSE}
 data_dm_all_keys %>% 
   dm_draw()
 ```
 
-```{r integrity check}
+```{r integrity check, results = 'hide'}
 data_dm_all_keys %>% 
   dm_examine_constraints()
 ```
@@ -510,27 +520,78 @@ kable(summary(dat), "html") %>%
     scroll_box(width = "100%", height = "500px")
 ```
 
-# LOADING
-Because the models are saved, this code chunk can be used to see the models output without running the models
-
-```{r}
-load(here("RData", "models.RData"))
-load(here("RData", "dat.RData"))
-load(here("RData", "dat2.RData"))
-load(here("RData", "dat3.RData"))
-# summary(mr1)
-# summary(mr1_egg)
-# summary(mr2)
-# summary(mr2_egg)
-# summary(mr3)
-# summary(mr3_egg)
-# summary(mr4)
-# summary(mr4_egg)
-```
-
 # Meta-analysis {.tabset}
 
-...
+## Intercept meta-analytical model
+
+Now that we calculated the effect size measures, we fit an intercept only, meta-analytic model
+
+read <https://daniel1noble.github.io/orchaRd/> for more details on making pretty plots.
+
+```{r, eval=FALSE}
+model1 <- rma.mv(yi = lnRR,
+             V = var_lnRR,
+             random = list(~1|es_ID,
+                           ~1|study_ID),
+             test = "t",
+             data = dat)
+
+save(model1, file = here("Rdata", "model1.RData"))
+```
+
+Load the model
+```{r}
+load(here("RData", "model1.RData"))
+summary(model1)
+i2_ml(model1)
+```
+
+##Table of results and orchard plot.
+
+```{r}
+model1_res <- 
+  mod_results(model1, 
+              mod = "1",
+              at = NULL, 
+              data = dat, 
+              group = "study_ID")
+model1_res
+
+orchaRd::orchard_plot(model1,
+                      mod = "1", 
+                      data = dat, 
+                      group = "study_ID",
+                      xlab = "lnRR", 
+                      alpha=0.4,
+                      angle = 45)
+```
+
+Use i2_sn function to obtain the total I\^2
+
+```{r}
+I2 <- orchaRd::i2_ml(model1)
+
+orchaRd::orchard_plot(model1_res,
+                      mod="1",
+                      xlab = "lnRR") + 
+  annotate(geom="text",
+           x= 0.80,
+           y= 1, 
+           label= paste0("italic(I)^{2} == ", round(I2[1],4)), # I want to use % but cannot do should come back
+              color="black", parse = TRUE, size = 5) +
+  scale_fill_manual(values="grey") +
+  scale_colour_manual(values="grey")
+```
+
+From previous graphs we can see that overall estimate from a random-effects meta-analysis of 371 effect sizes is centered on zero, with a 95% CI that spans the line of no-effect.
+The prediction intervals clearly demonstrate the high level of heterogeneity (over 95%).
+
+We can now draw a comparable caterpillar plot by using the function caterpillars.
+
+```{r,eval=FALSE}
+orchaRd::caterpillars(model1_res, mod="Int", xlab = "lnRR") 
+```
+
 
 ## Determine the random effect structure
 
@@ -560,11 +621,15 @@ Now we want to assess what variable explain for variance in the model.
 #               data = dat,
 #               sparse = TRUE)
 # summary(MA_all_rand_effects) # Phylogeny does not explain for any variance
+```
 
-library(clubSandwich)
+
+```{r}
 VCV <- impute_covariance_matrix(dat$var_lnRR, cluster = dat$measurement_ID_A, r = 0.5)
+```
 
-mod <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
+```{r, eval=FALSE}
+model2 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
               random = list(~1|study_ID, # Identity of the study
                             ~1|Phylogeny, # Phylogenetic correlation between species
                             ~1|species_ID,
@@ -576,14 +641,17 @@ mod <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors betwe
               data = dat,
               sparse = TRUE)
 
-summary(mod)
+save(model2, file = here("Rdata", "model2.RData"))
+```
+Load the model
+```{r}
+load(here("RData", "model2.RData"))
+summary(model2)
+i2_ml(model2)
+```
 
-i2_ml(mod)
-
-# a bit regression here
-
-
-mod1 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
+```{r, eval=FALSE}
+model3 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
               mod = ~ sample_type_P,# + sample_type_A,
               random = list(~1|study_ID, # Identity of the study
                             #~1|Phylogeny, # Phylogenetic correlation between species
@@ -595,15 +663,18 @@ mod1 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors betw
               test = "t",
               data = dat,
               sparse = TRUE)
+save(model3, file = here("Rdata", "model3.RData"))
+```
+Load the model
+```{r}
+load(here("RData", "model3.RData"))
+summary(model3)
+i2_ml(model3)
+orchard_plot(model3, mod = "sample_type_P", group = "study_ID", data = dat, xlab = "lnRR")
+```
 
-summary(mod1)
-
-r2_ml(mod1)
-
-orchard_plot(mod1, mod = "sample_type_P", group = "study_ID", data = dat, xlab = "lnRR")
-
-
-mod2 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
+```{r, eval=FALSE}
+model4 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
               mod = ~ sample_type_A,
               random = list(~1|study_ID, # Identity of the study
                             #~1|Phylogeny, # Phylogenetic correlation between species
@@ -615,77 +686,16 @@ mod2 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors betw
               test = "t",
               data = dat,
               sparse = TRUE)
-
-summary(mod2)
-
-r2_ml(mod2)
-
-orchard_plot(mod2, mod = "sample_type_A", group = "study_ID", data = dat, xlab = "lnRR")
-
-
+save(model4, file = here("Rdata", "model4.RData"))
 ```
-
-## Intercept meta-analytical model
-
-Now that we calculated the effect size measures, we fit an intercept only, meta-analytic model
-
-read <https://daniel1noble.github.io/orchaRd/> for more details on making pretty plots.
-
+Load the model
 ```{r}
-# m1 <- rma.mv(yi = lnRR,
-#              V = var_lnRR,
-#              random = list(~1|es_ID,
-#                            ~1|study_ID),
-#              test = "t",
-#              data = dat)
-# summary(m1)
-# i2_ml(m1)
+load(here("RData", "model4.RData"))
+summary(model4)
+i2_ml(model4)
+orchard_plot(model4, mod = "sample_type_A", group = "study_ID", data = dat, xlab = "lnRR")
 ```
 
-##Table of results and orchard and caterpillar plot.
-
-```{r}
-m1_res <- 
-  mod_results(m1, 
-              mod = "1",
-              at = NULL, 
-              data = dat, 
-              group = "study_ID")
-m1_res
-
-orchaRd::orchard_plot(m1,
-                      mod = "1", 
-                      data = dat, 
-                      group = "study_ID",
-                      xlab = "lnRR", 
-                      alpha=0.4,
-                      angle = 45)
-```
-
-Use i2_sn function to obtain the total I\^2
-
-```{r}
-I2 <- orchaRd::i2_ml(m1)
-
-orchaRd::orchard_plot(m1_res,
-                      mod="1",
-                      xlab = "lnRR") + 
-  annotate(geom="text",
-           x= 0.80,
-           y= 1, 
-           label= paste0("italic(I)^{2} == ", round(I2[1],4)), # I want to use % but cannot do should come back
-              color="black", parse = TRUE, size = 5) +
-  scale_fill_manual(values="grey") +
-  scale_colour_manual(values="grey")
-```
-
-From previous graphs we can see that overall estimate from a random-effects meta-analysis of 371 effect sizes is centered on zero, with a 95% CI that spans the line of no-effect. The prediction intervals clearly demonstrate the high level of heterogeneity (over 95%).
-
-We can now draw a comparable caterpillar plot by using the function caterpillars.
-
-```{r}
-#orchaRd::caterpillars(model_results, mod="Int", xlab = "lnRR") 
-```
 
 ## Meta-regression model
 
@@ -950,16 +960,6 @@ p4_egg
 #orchaRd::caterpillars(mr4_egg_res, mod="Int", xlab = "lnRR")
 ```
 
-###Save models
-
-```{r}
-# save(m1, m1_res, mr1, mr1_egg, mr2, mr2_egg, mr3, mr3_egg, mr4, mr4_egg, file = here("Rdata", "models.RData"))
-# 
-# save(dat, file = "~/PhD/GitHub/PFAS_MA_MaternalTransfer_WildBirds_PILOT/RData/dat.RData")
-# save(dat2, file = "~/PhD/GitHub/PFAS_MA_MaternalTransfer_WildBirds_PILOT/RData/dat2.RData")
-# save(dat3, file = "~/PhD/GitHub/PFAS_MA_MaternalTransfer_WildBirds_PILOT/RData/dat3.RData")
-```
-
 #Publication bias
 ```{r}
 pb_model <- metafor::rma.mv(lnRR, 
@@ -1006,7 +1006,7 @@ extreme_values <-
   dplyr::filter(lnRR < -4 | lnRR > 4)
 colnames(extreme_values)
 extreme_values <- 
-  extreme_values[, c(55, 56, 1 : 54)]
+  extreme_values[, c(57, 58, 1 : 56)]
 view(extreme_values)
 extreme_values <-
   extreme_values %>%
