@@ -48,7 +48,6 @@ knitr::opts_chunk$set(
 rm(list = ls())
 ```
 
-
 ```{r setup, results = 'hide'}
 # Loading packages
 knitr::opts_chunk$set(echo = TRUE)
@@ -127,7 +126,7 @@ data_dm_all_keys <-
 data_dm_all_keys
 ```
 
-```{r visualization, results = 'hide', include = FALSE}
+```{r visualization, results = 'hide'}
 data_dm_all_keys %>% 
   dm_draw()
 ```
@@ -308,7 +307,7 @@ ntable <-
   dplyr::filter(is.na(mean_arithmetic_A) == "FALSE" & is.na(mean_arithmetic_P) == "FALSE")
 ```
 
-#Add the ntable to the dm object
+#DM object
 
 ```{r adding the ntable to the dm object, include=FALSE}
 nt <- ntable
@@ -448,39 +447,37 @@ dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
 
 # Sensitivity analysis - Data
 
-We'll create three data sets to run a sensitivity analysis. 
-The first data set (i.e., dat) will include all the data. 
-The second (i.e., dat2) one will drop out data that are from pooled samples (i.e., from adult male + female pooled data) and/or data from adults and progeny that come from different nests.
-The third one (i.e., dat3) will drop out all effect size measures where the PFAS concentration in the adult OR progeny is below the limit of detection/quantification.
+We'll create three data sets to run a sensitivity analysis. The first data set (i.e., dat) will include all the data. The second (i.e., dat2) one will drop out data that are from pooled samples (i.e., from adult male + female pooled data) and/or data from adults and progeny that come from different nests. The third one (i.e., dat3) will drop out all effect size measures where the PFAS concentration in the adult OR progeny is below the limit of detection/quantification.
 
-```{r}
-# dat2 <-
-#   dat %>%
-#   dplyr::filter(data_pooled == "No" & nest == "Yes")
+```{r, eval=FALSE}
+dat2 <-
+  dat %>%
+  dplyr::filter(data_pooled == "No" & nest == "Yes")
 ```
 
 Remove all effect sizes where concentration in the adult OR progeny is below the limit of detection/quantification
 
-```{r}
-# Remove es_IDs where limit_type_A OR limit_type_P is != NA
-# dat3 <- 
-#   dat2 %>% 
-#   dplyr::filter(if_all(c(limit_type_A, limit_type_P), ~is.na(.)))
+```{r, eval=FALSE}
+Remove es_IDs where limit_type_A OR limit_type_P is != NA
+dat3 <-
+  dat2 %>%
+  dplyr::filter(if_all(c(limit_type_A, limit_type_P), ~is.na(.)))
 ```
 
 # Distribution of effect sizes
 
-```{r, fig.height=8, fig.width=15}
-# mean 
-# ggplot(dat, aes(x=lnRR))+ geom_histogram(fill = "salmon", col = "black", binwidth = 0.2) + theme_classic()
-# # variance
-# ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon", col = "black", binwidth = 0.05) + theme_classic()
-# # log variance
-# ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon", col = "black", binwidth = 0.05) + scale_x_log10()+theme_classic()
+```{r, fig.height=8, fig.width=15, , eval=FALSE}
+mean
+ggplot(dat, aes(x=lnRR))+ geom_histogram(fill = "salmon", col = "black", binwidth = 0.2) + theme_classic()
+# variance
+ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon", col = "black", binwidth = 0.05) + theme_classic()
+# log variance
+ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon", col = "black", binwidth = 0.05) + scale_x_log10()+theme_classic()
 ```
 
-```{r create the forest plot}
-#forest(dat$lnRR, dat$var_lnRR)
+# Forest plot
+```{r create the forest plot, , eval=FALSE}
+forest(dat$lnRR, dat$var_lnRR)
 ```
 
 # Table of sample sizes
@@ -528,9 +525,14 @@ Now that we calculated the effect size measures, we fit an intercept only, meta-
 
 read <https://daniel1noble.github.io/orchaRd/> for more details on making pretty plots.
 
+First of all, we need to account for correlated errors between cohorts (shared_controls)
+```{r}
+VCV_lnRR <- impute_covariance_matrix(dat$var_lnRR, cluster = dat$measurement_ID_A, r = 0.5)
+```
+
 ```{r, eval=FALSE}
 model1 <- rma.mv(yi = lnRR,
-             V = var_lnRR,
+             V = VCV_lnRR,
              random = list(~1|es_ID,
                            ~1|study_ID),
              test = "t",
@@ -539,31 +541,11 @@ model1 <- rma.mv(yi = lnRR,
 save(model1, file = here("Rdata", "model1.RData"))
 ```
 
-Load the model
 ```{r}
 load(here("RData", "model1.RData"))
 summary(model1)
 i2_ml(model1)
-```
-
-##Table of results and orchard plot.
-
-```{r}
-model1_res <- 
-  mod_results(model1, 
-              mod = "1",
-              at = NULL, 
-              data = dat, 
-              group = "study_ID")
-model1_res
-
-orchaRd::orchard_plot(model1,
-                      mod = "1", 
-                      data = dat, 
-                      group = "study_ID",
-                      xlab = "lnRR", 
-                      alpha=0.4,
-                      angle = 45)
+orchard_plot(model1, group = "study_ID", data = dat, xlab = "lnRR")
 ```
 
 Use i2_sn function to obtain the total I\^2
@@ -571,8 +553,10 @@ Use i2_sn function to obtain the total I\^2
 ```{r}
 I2 <- orchaRd::i2_ml(model1)
 
-orchaRd::orchard_plot(model1_res,
+orchaRd::orchard_plot(model1,
                       mod="1",
+                      group = "study_ID",
+                      data = dat,
                       xlab = "lnRR") + 
   annotate(geom="text",
            x= 0.80,
@@ -583,8 +567,7 @@ orchaRd::orchard_plot(model1_res,
   scale_colour_manual(values="grey")
 ```
 
-From previous graphs we can see that overall estimate from a random-effects meta-analysis of 371 effect sizes is centered on zero, with a 95% CI that spans the line of no-effect.
-The prediction intervals clearly demonstrate the high level of heterogeneity (over 95%).
+From previous graphs we can see that overall estimate from a random-effects meta-analysis of 371 effect sizes is centered on zero, with a 95% CI that spans the line of no-effect. The prediction intervals clearly demonstrate the high level of heterogeneity (over 95%).
 
 We can now draw a comparable caterpillar plot by using the function caterpillars.
 
@@ -592,44 +575,14 @@ We can now draw a comparable caterpillar plot by using the function caterpillars
 orchaRd::caterpillars(model1_res, mod="Int", xlab = "lnRR") 
 ```
 
-
 ## Determine the random effect structure
 
 Now we want to assess what variable explain for variance in the model.
 
-```{r}
-# MA_all_rand_effects <- rma.mv(lnRR, var_lnRR, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
-#               random = list(~1|study_ID, # Identity of the study
-#                             ~1|Phylogeny, # Phylogenetic correlation between species
-#                             ~1|pfas_ID, # Type of PFAS
-#                             ~1|es_ID, # Effect size identity
-#                             ~1|sample_type_A,
-#                             ~1|sample_type_P,
-#                             ~1|sampling_year_A,
-#                             ~1|sampling_year_P,
-#                             ~1|sampling_month_A,
-#                             ~1|sampling_month_P,
-#                             ~1|breeding_stage,
-#                             ~1|laying_order,
-#                             ~1|developmental_stage_A,
-#                             ~1|developmental_stage_P,
-#                             ~1|body_weight_mean,
-#                             ~1|egg_weight_mean
-#                             ),
-#               R = list(Phylogeny = cor_tree), # Assign the 'Phylogeny' argument to the phylogenetic variance-covariance matrix
-#               test = "t",
-#               data = dat,
-#               sparse = TRUE)
-# summary(MA_all_rand_effects) # Phylogeny does not explain for any variance
-```
-
-
-```{r}
-VCV <- impute_covariance_matrix(dat$var_lnRR, cluster = dat$measurement_ID_A, r = 0.5)
-```
+Test the random effects.
 
 ```{r, eval=FALSE}
-model2 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
+model2 <- rma.mv(lnRR, VCV_lnRR, # Add `VCV_lnRR` to account for correlated errors between cohorts (shared_controls)
               random = list(~1|study_ID, # Identity of the study
                             ~1|Phylogeny, # Phylogenetic correlation between species
                             ~1|species_ID,
@@ -643,18 +596,25 @@ model2 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors be
 
 save(model2, file = here("Rdata", "model2.RData"))
 ```
-Load the model
+
 ```{r}
 load(here("RData", "model2.RData"))
 summary(model2)
 i2_ml(model2)
 ```
 
+Phylogeny does not explain for any variance. Thus, we remove it from the model.
+
+## Meta-regression model
+Now, we want to fit a meta-regression model to test whether there are moderators that explain for variance.
+
+### Tissue progeny
+Does "sample_type_P" impact our results on the mean and variance?
+
 ```{r, eval=FALSE}
-model3 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
+model3 <- rma.mv(lnRR, VCV_lnRR,
               mod = ~ sample_type_P,# + sample_type_A,
               random = list(~1|study_ID, # Identity of the study
-                            #~1|Phylogeny, # Phylogenetic correlation between species
                             ~1|species_ID,
                             ~1|pfas_ID, # Type of PFAS
                             ~1|es_ID # Effect size identity
@@ -665,7 +625,7 @@ model3 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors be
               sparse = TRUE)
 save(model3, file = here("Rdata", "model3.RData"))
 ```
-Load the model
+
 ```{r}
 load(here("RData", "model3.RData"))
 summary(model3)
@@ -673,11 +633,13 @@ i2_ml(model3)
 orchard_plot(model3, mod = "sample_type_P", group = "study_ID", data = dat, xlab = "lnRR")
 ```
 
+### Tissue adult
+Does "sample_type_A" impact our results on the mean and variance?
+
 ```{r, eval=FALSE}
-model4 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors between cohorts (shared_controls)
+model4 <- rma.mv(lnRR, VCV_lnRR,
               mod = ~ sample_type_A,
               random = list(~1|study_ID, # Identity of the study
-                            #~1|Phylogeny, # Phylogenetic correlation between species
                             ~1|species_ID,
                             ~1|pfas_ID, # Type of PFAS
                             ~1|es_ID # Effect size identity
@@ -688,7 +650,7 @@ model4 <- rma.mv(lnRR, VCV, # Add `var_lnRR` to account for correlated errors be
               sparse = TRUE)
 save(model4, file = here("Rdata", "model4.RData"))
 ```
-Load the model
+
 ```{r}
 load(here("RData", "model4.RData"))
 summary(model4)
@@ -696,117 +658,107 @@ i2_ml(model4)
 orchard_plot(model4, mod = "sample_type_A", group = "study_ID", data = dat, xlab = "lnRR")
 ```
 
-
-## Meta-regression model
-
-###Bird species
+### Bird species 
 Now, we want to fit a meta-regression model to test whether the moderator "species_ID" impacts our results on the mean and variance.
 
+```{r, eval=FALSE}
+model5 <- rma.mv(lnRR, VCV_lnRR,
+              mod = ~ species_ID,
+              random = list(~1|study_ID, # Identity of the study
+                            ~1|species_ID,
+                            ~1|pfas_ID, # Type of PFAS
+                            ~1|es_ID # Effect size identity
+              ),
+              test = "t",
+              data = dat,
+              sparse = TRUE)
+save(model5, file = here("Rdata", "model5.RData"))
+
+```
+
+```{r}
+load(here("RData", "model5.RData"))
+summary(model5)
+i2_ml(model5)
+orchard_plot(model5, mod = "species_ID", group = "study_ID", data = dat, xlab = "lnRR")
+```
+
+### PFAS type - carboxylic acids
+
+```{r, eval=FALSE}
+model6 <- rma.mv(lnRR, VCV_lnRR,
+              mod = ~ pfas_type_acronym,
+              random = list(~1|study_ID, # Identity of the study
+                            ~1|species_ID,
+                            ~1|pfas_ID, # Type of PFAS
+                            ~1|es_ID # Effect size identity
+              ),
+              test = "t",
+              data = dat,
+              sparse = TRUE)
+save(model6, file = here("Rdata", "model6.RData"))
+```
+
+```{r}
+load(here("RData", "model6.RData"))
+summary(model6)
+i2_ml(model6)
+orchard_plot(model6, mod = "species_ID", group = "study_ID", data = dat, xlab = "lnRR")
+```
+
+### PFAS type - sulfonic acids
+
+```{r, eval=FALSE}
+model7 <- rma.mv(lnRR, VCV_lnRR,
+              mod = ~ pfas_type_acronym,
+              random = list(~1|study_ID, # Identity of the study
+                            ~1|species_ID,
+                            ~1|pfas_ID, # Type of PFAS
+                            ~1|es_ID # Effect size identity
+              ),
+              test = "t",
+              data = dplyr::filter(dat,
+                                   functional_group == "Sulfonate / sulfonic acid"),
+              sparse = TRUE)
+save(model7, file = here("Rdata", "model7.RData"))
+```
+
+```{r}
+load(here("RData", "model7.RData"))
+summary(model7)
+i2_ml(model7)
+orchard_plot(model7, mod = "species_ID", group = "study_ID", data = dat, xlab = "lnRR")
+```
+
+
+
+
+
+
+
+  
+  
+  
+  
+
+
+
+
+
+
+
+
+
 ```{r, eval = FALSE}
-# mr1 <- rma.mv(lnRR,
-#               var_lnRR,
-#               mods = ~ species_ID,
-#               random = list(~1|es_ID,
-#                            ~1|study_ID),
-#               test = "t",
-#               data = dat)
-#summary(mr1)
 
-# mr1_egg <- rma.mv(lnRR,
-#               var_lnRR,
-#               mods = ~ species_ID,
-#               random = list(~1|es_ID,
-#                            ~1|study_ID),
-#               test = "t",
-#               data = dplyr::filter(dat,
-#                                    life_stage_P == "egg"))
-#summary(mr1_egg)
-```
-
-Again, we can create a table of results and draw plots
-
-```{r}
-mr1_res <- orchaRd::mod_results(mr1, 
-                             mod = "species_ID",
-                             data = dat,
-                             group = "study_ID",
-                             )
-mr1_res
-
-p1 <- orchaRd::orchard_plot(mr1_res,
-                            mod = "Int",
-                            data = "Int",
-                            group = "Int",
-                            xlab = "lnRR",
-                            alpha=0.4,
-                            angle = 45)
-p1
-
-#orchaRd::caterpillars(mr1_res, mod="Int", xlab = "lnRR")
-
-mr1_egg_res <- orchaRd::mod_results(mr1_egg, 
-                             mod = "species_ID",
-                             data = dplyr::filter(dat,
-                                   life_stage_P == "egg"),
-                             group = "study_ID",
-                             )
-mr1_egg_res
-
-p1_egg <- orchaRd::orchard_plot(mr1_egg_res,
-                            mod = "Int",
-                            data = "Int",
-                            group = "Int",
-                            xlab = "lnRR",
-                            alpha=0.4,
-                            angle = 45)
-p1_egg
-
-#orchaRd::caterpillars(mr1_egg_res, mod="Int", xlab = "lnRR")
-```
-
-###PFAS type - carboxylic acids
-
-```{r}
-mr2 <- rma.mv(lnRR,
+mr2_egg <- rma.mv(lnRR,
               var_lnRR,
               mods = ~ carbon_chain_length,
               random = list(~1|es_ID,
                            ~1|study_ID),
               test = "t",
               data = dplyr::filter(dat,
-                                   functional_group == "Carboxylate / carboxylic acid"))
-
-summary(mr2)
-
-mr2_res <- orchaRd::mod_results(mr2, 
-                             mod = "carbon_chain_length",
-                             data = dplyr::filter(dat,
-                                   functional_group == "Carboxylate / carboxylic acid"),
-                             group = "study_ID",
-                             )
-mr2_res
-
-
-
-p2 <- orchaRd::orchard_plot(mr2_res,
-                            mod = "Int",
-                            data = "Int",
-                            group = "Int",
-                            xlab = "lnRR",
-                            alpha=0.4,
-                            angle = 45)
-p2
-
-#Same model but only on eggs:
-
-# mr2_egg <- rma.mv(lnRR,
-#               var_lnRR,
-#               mods = ~ carbon_chain_length,
-#               random = list(~1|es_ID,
-#                            ~1|study_ID),
-#               test = "t",
-#               data = dplyr::filter(dat,
-#                                    functional_group == "Carboxylate / carboxylic acid" & life_stage_P == "egg"))
+                                   functional_group == "Carboxylate / carboxylic acid" & life_stage_P == "egg"))
 
 #summary(mr2_egg)
 
@@ -832,15 +784,15 @@ p2_egg
 
 ###PFAS type - sulfonic acids
 
-```{r}
-# mr3 <- rma.mv(lnRR,
-#               var_lnRR,
-#               mods = ~ carbon_chain_length,
-#               random = list(~1|es_ID,
-#                            ~1|study_ID),
-#               test = "t",
-#               data = dplyr::filter(dat,
-#                                    functional_group == "Sulfonate / sulfonic acid"))
+```{r, eval = FALSE}
+mr3 <- rma.mv(lnRR,
+              var_lnRR,
+              mods = ~ carbon_chain_length,
+              random = list(~1|es_ID,
+                           ~1|study_ID),
+              test = "t",
+              data = dplyr::filter(dat,
+                                   functional_group == "Sulfonate / sulfonic acid"))
 
 #summary(mr3)
 
@@ -869,14 +821,14 @@ p3
 
 # Same model but only on eggs:
 
-# mr3_egg <- rma.mv(lnRR,
-#               var_lnRR,
-#               mods = ~ carbon_chain_length,
-#               random = list(~1|es_ID,
-#                            ~1|study_ID),
-#               test = "t",
-#               data = dplyr::filter(dat,
-#                                    functional_group == "Sulfonate / sulfonic acid" & life_stage_P == "egg"))
+mr3_egg <- rma.mv(lnRR,
+              var_lnRR,
+              mods = ~ carbon_chain_length,
+              random = list(~1|es_ID,
+                           ~1|study_ID),
+              test = "t",
+              data = dplyr::filter(dat,
+                                   functional_group == "Sulfonate / sulfonic acid" & life_stage_P == "egg"))
 
 #summary(mr3_egg)
 
@@ -900,14 +852,14 @@ p3_egg
 
 ###Seabirds VS non-seabirds
 
-```{r}
-# mr4 <- rma.mv(lnRR,
-#               var_lnRR,
-#               mods = ~ seabird,
-#               random = list(~1|es_ID,
-#                            ~1|study_ID),
-#               test = "t",
-#               data = dat)
+```{r, eval = FALSE}
+mr4 <- rma.mv(lnRR,
+              var_lnRR,
+              mods = ~ seabird,
+              random = list(~1|es_ID,
+                           ~1|study_ID),
+              test = "t",
+              data = dat)
 
 #summary(mr4)
 
@@ -931,13 +883,13 @@ p4
 
 # Same model but only on eggs:
 
-# mr4_egg <- rma.mv(lnRR,
-#               var_lnRR,
-#               mods = ~ seabird,
-#               random = list(~1|es_ID,
-#                            ~1|study_ID),
-#               test = "t",
-#               data = dplyr::filter(dat, life_stage_P == "egg"))
+mr4_egg <- rma.mv(lnRR,
+              var_lnRR,
+              mods = ~ seabird,
+              random = list(~1|es_ID,
+                           ~1|study_ID),
+              test = "t",
+              data = dplyr::filter(dat, life_stage_P == "egg"))
 
 #summary(mr4_egg)
 
@@ -961,6 +913,7 @@ p4_egg
 ```
 
 #Publication bias
+
 ```{r}
 pb_model <- metafor::rma.mv(lnRR, 
               var_lnRR,
@@ -981,25 +934,18 @@ orchaRd::bubble_plot(pb_bubble,
                      legend.pos = "top.left")
 ```
 
-
 # Sensitivity analysis - Models
+
 Here we run each model using data for sensitivity analysis (dat2 and dat3).
+
 ```{r}
 
 ```
 
-
-
-
-
-
-
-
-
-
 # tries
 
 Check extreme lnRR values
+
 ```{r}
 extreme_values <- 
   dat %>%
@@ -1025,3 +971,41 @@ boxplot( lnRR ~ sample_type_P, data = dplyr::filter(dat, life_stage_P == "egg"),
         col = c("green","yellow","purple"))
 ```
 
+
+
+
+```{r, eval = FALSE}
+mr1_egg <- rma.mv(lnRR,
+              var_lnRR,
+              mods = ~ species_ID,
+              random = list(~1|es_ID,
+                           ~1|study_ID),
+              test = "t",
+              data = dplyr::filter(dat,
+                                   life_stage_P == "egg"))
+summary(mr1_egg)
+```
+
+Again, we can create a table of results and draw plots
+
+```{r, eval = FALSE}
+
+mr1_egg_res <- orchaRd::mod_results(mr1_egg, 
+                             mod = "species_ID",
+                             data = dplyr::filter(dat,
+                                   life_stage_P == "egg"),
+                             group = "study_ID",
+                             )
+mr1_egg_res
+
+p1_egg <- orchaRd::orchard_plot(mr1_egg_res,
+                            mod = "Int",
+                            data = "Int",
+                            group = "Int",
+                            xlab = "lnRR",
+                            alpha=0.4,
+                            angle = 45)
+p1_egg
+
+#orchaRd::caterpillars(mr1_egg_res, mod="Int", xlab = "lnRR")
+```
