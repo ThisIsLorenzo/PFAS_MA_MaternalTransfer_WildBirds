@@ -13,12 +13,11 @@ editor_options:
 
 # Purpose
 
-This .Rmd document provides the code I used for data processing, data anlysing, and visualization.
+This .Rmd document provides the code I used for data processing, data analysing, and visualization.
 
 # Data model
 
-A relational data model organizes extracted data from included studies into tables of rows and columns, and the relationships between the data are defined using primary and foreign keys
-includes my local data tables. This allows for efficient querying and data manipulation, and makes it easy to integrate data from multiple tables.
+A relational data model organizes extracted data from included studies into tables of rows and columns, and the relationships between the data are defined using primary and foreign keys includes my local data tables. This allows for efficient querying and data manipulation, and makes it easy to integrate data from multiple tables.
 
 I extracted data from the included studies on six data tables:
 
@@ -36,9 +35,10 @@ I extracted data from the included studies on six data tables:
 
 They are stored in [a repository on GitHub](https://github.com/ThisIsLorenzo/PFAS_MA_MaternalTransfer_WildBirds_Pilot/tree/main/Data)
 
-# Data processing
+# Data loading & processing
 
 Set up knitr options
+
 ```{r setup, eval = TRUE, include = TRUE, message = FALSE, echo = TRUE,  warning = FALSE}
 # knitr setting
 knitr::opts_chunk$set(
@@ -53,6 +53,7 @@ rm(list = ls())
 ```
 
 loading packages
+
 ```{r loading packages, results = 'hide'}
 # Loading packages
 pacman::p_load(tidyverse,
@@ -67,10 +68,13 @@ pacman::p_load(tidyverse,
                meta,
                orchaRd,
                kableExtra,
+               phytools,
+               patchwork,
                clubSandwich)
 ```
 
 loading the six data tables
+
 ```{r loading data, results = 'hide'}
 st <- read_csv(here("Data", "study_info.csv"))
 sp <- read_csv(here("Data", "species_info.csv"))
@@ -81,6 +85,7 @@ me <- read_csv(here("Data", "measurement_info.csv"))
 ```
 
 cleaning data
+
 ```{r cleaning data tables, results = 'hide'}
 st <- st %>% 
   select(-("Timestamp")) %>%
@@ -103,6 +108,7 @@ me <- me %>%
 ```
 
 dm object without keys
+
 ```{r adding tables to the dm object, results = 'hide'}
 data_dm_no_keys <- dm(st, sp, pfas, co, sa, me)
 data_dm_no_keys
@@ -111,6 +117,7 @@ data_dm_no_keys[c("st", "co")]
 ```
 
 defining primary keys
+
 ```{r defining primary keys, results = 'hide'}
 data_dm_only_pks <- data_dm_no_keys %>% 
   dm_add_pk(table = st, columns = study_ID) %>% 
@@ -123,6 +130,7 @@ data_dm_only_pks
 ```
 
 defining foreign keys
+
 ```{r defining foreign keys, results = 'hide'}
 data_dm_all_keys <- 
   data_dm_only_pks %>% 
@@ -135,7 +143,8 @@ data_dm_all_keys
 ```
 
 dm visualization and integrity check
-```{r visualization, results = 'hide'}
+
+```{r visualization, eval=FALSE}
 data_dm_all_keys %>% 
   dm_draw()
 
@@ -159,9 +168,7 @@ me1 <-
 colnames(me1)
 ```
 
-Now I want to create a new column called "es_ID" which matches all the pairs of measurement I will use in the escalc() function to calculate the effect size measurements.
-Study, PFAS type, species, and sampling location must be the same, so I group by them. 
-The group (i.e., group_info) must be different, so that I pair adult-progeny in all possible combinations (different tissues in adults, eggs, chicks).
+Now I want to create a new column called "es_ID" which matches all the pairs of measurement I will use in the escalc() function to calculate the effect size measurements. Study, PFAS type, species, and sampling location must be the same, so I group by them. The group (i.e., group_info) must be different, so that I pair adult-progeny in all possible combinations (different tissues in adults, eggs, chicks).
 
 ```{r}
 list_dat <- 
@@ -302,9 +309,7 @@ ntable <- dplyr::select(ntable, -c('study_ID_A',
                                    'pfas_ID_P'))
 ```
 
-Remove effect sizes where both adult and progeny concentrations were under the limit of detection or quantification. 
-This was an assumption made in the pre-registration. 
-This is necessary to have meaningful response ratios.
+Remove effect sizes where both adult and progeny concentrations were under the limit of detection or quantification. This was an assumption made in the pre-registration. This is necessary to have meaningful response ratios.
 
 ```{r}
 # Remove es_IDs where both limit_type_A AND limit_type_P are != NA
@@ -314,8 +319,7 @@ ntable <-
                is.na(limit_type_P) == "TRUE")
 ```
 
-Remove effect size measurements with NA in the mean concentration in the adult OR progeny. 
-This is necessary for successful analysis because means cannot be "NA" in effect size calculations.
+Remove effect size measurements with NA in the mean concentration in the adult OR progeny. This is necessary for successful analysis because means cannot be "NA" in effect size calculations.
 
 ```{r}
 ntable <- 
@@ -345,7 +349,10 @@ data_dm_all_keys <-
   dm_add_fk(table = nt, columns = species_ID, ref_table = sp) %>% 
   dm_add_fk(table = nt, columns = pfas_ID, ref_table = pfas)
 data_dm_all_keys
+```
 
+
+```{r, eval=FALSE}
 data_dm_all_keys %>% 
   dm_draw()
 
@@ -381,8 +388,8 @@ lnRR_func <- function(mean_A,
                       aCV2a,
                       aCV2p)
   {
-  lnRR <- log(mean_P/mean_A) + 
-        0.5 * ((aCV2p/n_P) - (aCV2a/n_A))	
+  lnRR <- log(mean_P/mean_A) + 0.5 * ((aCV2p/n_P) - (aCV2a/n_A))	
+  
   lnRR
   }
 # Custom function to calculate the lnRR's sampling variance from independent designs (rTC = 0)
@@ -406,6 +413,124 @@ var_lnRR_ind <- function(mean_A,
 # aCV2e: Mean coefficient of variation of the cooked (experimental) samples
 
 ```
+
+# Missing standard deviation values
+
+How many sd values are missing in the data frame?
+
+```{r}
+sum(is.na(nt$sd_P))
+#[1] 81
+sum(is.na(nt$sd_A))
+#[1] 54
+```
+
+I need to estimate these missing SDs. 
+To do so, I follow the methods proposed by Nakagawa et al., 2022 ([A robust and readily implementable method for the meta-analysis of response ratios with and without missing standard deviations](https://ecoevorxiv.org/repository/view/3753/)).
+
+## Geary's Test
+
+How well missing SD methods perform (and indeed whether lnRR is suitable at all) depends on whether lnRR is normally distributed. We can use a modified Geary's Test (Lajeunesse 2015) to ascertain effects that may be problematic.
+
+```{r}
+# Function to calculate Geary's "number"
+  geary <- function(mean, 
+                    sd, 
+                    n)
+    {
+    (1 / (sd / mean)) * ((4*n)^(3/2) / (1 + 4*n))
+    }
+
+# Geary's test; assumption of normality assumed to be approximately correct when values are >= 3.
+nt <- nt %>% 
+         mutate(geary_control = geary(mean_A,
+                                      sd_A,
+                                      n_A),
+                    geary_trt = geary(mean_P, 
+                                      sd_P,
+                                      n_P),
+                   geary_test = ifelse(geary_control >= 3 & geary_trt >= 3, "pass", "fail"))
+# How many fail?
+geary_res <- nt %>% 
+      group_by(geary_test) %>% 
+      summarise(n = n()) %>% 
+      data.frame()
+
+geary_res
+#   geary_test   n
+# 1       fail   6
+# 2       pass 238
+# 3       <NA> 127
+```
+
+Overall, it looks like we have 6 effects that fail the test. Lajeunesse (2015) recommend doing a sensitivity analysis with and without the effect sizes that fail the test.
+
+## All-cases Method
+
+To implement the all-cases Method, we need to first calculate the between study CV. We will do this with the `cvg_avg` function. 
+Here, we need to do this for the adults and progeny groups as follows, such that variable b_CV_1 and b_CV_2 are the averages for the adults and progeny groups, respectively:
+
+```{r, eval=FALSE}
+# Calculate the average between study CV, which will replace missing values.
+cv_avg <- function(x, 
+                   sd, 
+                   n, 
+                   group,
+                   data,
+                   label = NULL,
+                   sub_b = TRUE, 
+                   cv2=FALSE){
+
+  # Check if the name is specified or not. If not, then assign it the name of the mean, x, variable input in the function. https://stackoverflow.com/questions/60644445/converting-tidyeval-arguments-to-string
+  
+if(is.null(label)){
+  label <- purrr::map_chr(enquos(x), rlang::as_label)
+  }
+# Calculate between study CV. Take weighted mean CV within study, and then take a weighted mean across studies of the within study CV. Weighted based on sample size and pooled sample size.
+  b_grp_cv_data <- nt %>%
+    dplyr::group_by({{group}}) %>%
+    dplyr::mutate(w_CV2 = weighted_CV({{sd}}, 
+                                         {{x}}, 
+                                         {{n}},
+                                         cv2=cv2),
+                     n_mean = mean({{n}}, na.rm = TRUE)) %>%
+    dplyr::ungroup(.) %>%
+    dplyr::mutate(b_CV2 = weighted.mean(w_CV2,
+                                        n_mean,
+                                        na.rm = TRUE), .keep = "used")
+
+# Make sure that label of the calculated columns is distinct from any other columns
+  names(b_grp_cv_data) <- paste0(names(b_grp_cv_data), "_", label)
+
+# Append these calculated columns back to the original data and return the full dataset.
+  if(sub_b){
+    b_grp_cv_data <- b_grp_cv_data %>% 
+      dplyr::select(grep("b_", names(b_grp_cv_data)))
+    dat_new <- cbind(data, b_grp_cv_data)
+  } else {
+    dat_new <- cbind(data, b_grp_cv_data)
+  }
+
+  return(data.frame(dat_new))
+}
+  
+  
+# Calculate the average between study CV, which will replace missing values
+nt <- cv_avg(x = mean_A,
+             sd = sd_A,
+             n = n_A,
+             group = study_ID,
+             label = "1",
+             data = nt)
+
+nt <- cv_avg(x = mean_P,
+             sd = sd_P,
+             n = n_P,
+             group = study_ID,
+             label = "2",
+             data = nt)
+```
+
 
 # Phylogenetic information
 
@@ -437,22 +562,18 @@ plot(tree)
 
 # Effect sizes
 
-Calculate effect sizes The average coefficient of variation in PFAS concentration was calculated for each study and treatment, according to *Doncaster and Spake (2018) Correction for bias in meta-analysis of little-replicated studies. Methods in Ecology and Evolution; 9:634-644*. Then, these values were averaged across studies and used to calculate the lnRR corrected for small sample sizes (for formula, see the `lnRR_func` above)
+The average coefficient of variation in PFAS concentration was calculated for each study and treatment, according to *Doncaster and Spake (2018) Correction for bias in meta-analysis of little-replicated studies. Methods in Ecology and Evolution; 9:634-644*. 
+Then, these values were averaged across studies and used to calculate the lnRR corrected for small sample sizes (for formula, see the `lnRR_func` above)
 
 ```{r Calculating lnRR and Variance}
 # Calculate the squared coefficient of variation for adult and progeny groups
-
-# colnames(nt2)[3] <- "mean_A"
-# colnames(nt2)[4] <- "mean_P"
-# colnames(nt2)[5] <- "sd_A"
-# colnames(nt2)[6] <- "sd_P"
 
 aCV2 <- nt2 %>% 
   group_by(study_ID) %>%
   summarise(CV2a = mean((sd_A/mean_A)^2, na.rm = T),
             CV2p = mean((sd_P/mean_P)^2, na.rm = T)) %>% 
   ungroup() %>% # ungroup 
-  summarise(aCV2a = mean(CV2a, na.rm = T), # Mean CV^2 for exp and control groups across studies 
+  summarise(aCV2a = mean(CV2a, na.rm = T), # Mean CV^2 for adult and progeny groups across studies 
             aCV2p = mean(CV2p, na.rm = T))
 
 lnRR <- lnRR_func(mean_A = nt2$mean_A,
@@ -477,11 +598,7 @@ dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
 
 # Sensitivity analysis - Data
 
-Here I create three data sets to run a sensitivity analysis.
-The first data set (i.e., dat) will include all the data.
-The second (i.e., *dat2*) one will drop out data that are from pooled samples (i.e., from adult male + female pooled data) and/or data from adults and progeny that come from different nests. 
-The third one (i.e., *dat3*) will drop out all effect size measures where the PFAS concentration in the adult OR progeny is below the limit of detection/quantification.
-Eval is false in the following chunks.
+Here I create three data sets to run a sensitivity analysis. The first data set (i.e., dat) will include all the data. The second (i.e., *dat2*) one will drop out data that are from pooled samples (i.e., from adult male + female pooled data) and/or data from adults and progeny that come from different nests. The third one (i.e., *dat3*) will drop out all effect size measures where the PFAS concentration in the adult OR progeny is below the limit of detection/quantification. Eval is false in the following chunks.
 
 ```{r, eval=FALSE}
 dat2 <-
@@ -501,6 +618,7 @@ dat3 <-
 # Distribution of effect sizes
 
 Plotting effect size measurements distribution
+
 ```{r, fig.height=8, fig.width=15, , eval=FALSE}
 mean
 ggplot(dat, aes(x=lnRR))+ geom_histogram(fill = "salmon", 
@@ -517,6 +635,7 @@ ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon",
 ```
 
 # Forest plot of effect size measurements
+
 ```{r create the forest plot, , eval=FALSE}
 forest(dat$lnRR, dat$var_lnRR)
 ```
@@ -566,9 +685,7 @@ Now that we calculated the effect size measures, we fit an intercept only, meta-
 
 read <https://daniel1noble.github.io/orchaRd/> for more details on making pretty plots.
 
-First of all, we need to account for correlated errors between cohorts (shared_controls).
-For this purpose, I calculate the variance-covariance from the log response ratio variance.
-Variance-covariance is a measure of how two random variables are related. The variance-covariance matrix is a square matrix that shows the variances and covariances of a set of random variables. The diagonal elements of the matrix show the variances of the individual random variables, while the off-diagonal elements show the covariances between pairs of variables.
+First of all, we need to account for correlated errors between cohorts (shared_controls). For this purpose, I calculate the variance-covariance from the log response ratio variance. Variance-covariance is a measure of how two random variables are related. The variance-covariance matrix is a square matrix that shows the variances and covariances of a set of random variables. The diagonal elements of the matrix show the variances of the individual random variables, while the off-diagonal elements show the covariances between pairs of variables.
 
 ```{r}
 VCV_lnRR <- impute_covariance_matrix(dat$var_lnRR,
@@ -577,6 +694,7 @@ VCV_lnRR <- impute_covariance_matrix(dat$var_lnRR,
 ```
 
 Intercept meta-analytic model:
+
 ```{r, eval=FALSE}
 model1 <- rma.mv(yi = lnRR,
              V = VCV_lnRR,
@@ -596,6 +714,7 @@ orchard_plot(model1, group = "study_ID", data = dat, xlab = "lnRR")
 ```
 
 Use i2_sn function to obtain the total I\^2.
+
 ```{r}
 I2 <- orchaRd::i2_ml(model1)
 
@@ -615,11 +734,51 @@ orchaRd::orchard_plot(model1,
 
 From previous graphs we can see that overall estimate from a random-effects meta-analysis of 371 effect sizes is centered on zero, with a 95% CI that spans the line of no-effect. The prediction intervals clearly demonstrate the high level of heterogeneity (over 95%).
 
-We can now draw a comparable caterpillar plot by using the function caterpillars.
-This caterpillar plot does not tell us anything new that the orchard plot didn't. But it can be compared to the orchard plot.
+We can now draw a comparable caterpillar plot by using the function caterpillars. This caterpillar plot does not tell us anything new that the orchard plot didn't. But it can be compared to the orchard plot.
+
 ```{r,eval=FALSE}
 orchaRd::caterpillars(model1_res, mod="Int", xlab = "lnRR") 
 ```
+
+Meta-analytic model filtering out albumen:
+
+```{r, eval=FALSE}
+model1_noalbu <- rma.mv(yi = lnRR,
+             V = var_lnRR,
+             random = list(~1|es_ID,
+                           ~1|study_ID),
+             test = "t",
+             data = dplyr::filter(dat, sample_type_P != "albumen" ))
+
+save(model1_noalbu, file = here("Rdata", "model1_noalbu.RData"))
+```
+
+
+```{r}
+load(here("RData", "model1_noalbu.RData"))
+summary(model1_noalbu)
+i2_ml(model1_noalbu)
+orchard_plot(model1_noalbu, group = "study_ID", data = dplyr::filter(dat, sample_type_P != "albumen" ), xlab = "lnRR")
+```
+
+
+```{r, eval=FALSE}
+I2_noalbu <- orchaRd::i2_ml(model1_noalbu)
+
+orchaRd::orchard_plot(model1_noalbu,
+                      mod="1",
+                      group = "study_ID",
+                      data = dplyr::filter(dat, sample_type_P != "albumen" ),
+                      xlab = "lnRR") + 
+  annotate(geom="text",
+           x= 0.80,
+           y= 1, 
+           label= paste0("italic(I)^{2} == ", round(I2_noalbu[1],4)), # I want to use % but cannot do should come back
+              color="black", parse = TRUE, size = 5) +
+  scale_fill_manual(values="grey") +
+  scale_colour_manual(values="grey")
+```
+
 
 ## Determine the random effect structure
 
@@ -651,22 +810,50 @@ Phylogeny does not explain for any variance! (sigma squared = 0.0000)
 
 Thus, we remove it from the model.
 
-The effects of the other grouping variable are assumed to be random and are accounted for in the analysis. This allows the model to account for any differences between the groups and to provide more accurate estimates of the relationships between the variables.
+The effects of the other grouping variables are assumed to be random and are accounted for in the analysis. This allows the model to account for any differences between the groups and to provide more accurate estimates of the relationships between the variables.
+
+Now
+Determine the randome effect structure filtering out albumen
+```{r, eval=FALSE}
+model2_noalbu <- rma.mv(lnRR, var_lnRR, # Add `VCV_lnRR` to account for correlated errors between cohorts (shared_controls)
+              random = list(~1|study_ID, # Identity of the study
+                            ~1|Phylogeny, # Phylogenetic correlation between species
+                            ~1|species_ID, # Identity of the species
+                            ~1|pfas_ID, # Type of PFAS
+                            ~1|es_ID # Effect size identity
+              ),
+              R = list(Phylogeny = cor_tree), # Assign the 'Phylogeny' argument to the phylogenetic variance-covariance matrix
+              test = "t",
+              data = dplyr::filter(dat, sample_type_P != "albumen" ),
+              sparse = TRUE)
+
+save(model2_noalbu, file = here("Rdata", "model2_noalbu.RData"))
+```
+
+
+```{r}
+load(here("RData", "model2_noalbu.RData"))
+summary(model2_noalbu)
+i2_ml(model2_noalbu)
+orchard_plot(model2_noalbu, group = "study_ID", data = dplyr::filter(dat, sample_type_P != "albumen" ), xlab = "lnRR")
+```
+
+
+Phylogeny does not explain for any variance in this case as well.
 
 ## Meta-regression model
 
-Now that the effects of the grouping variables are modeled as random effects, we include in the model additional variables (moderators) to explain any variations in the results. Moderators are tested for their overall effect on the maternal PFAS transfer.
-The moderators I am going to include in the model are:
+Now that the effects of the grouping variables are modeled as random effects, we include in the model additional variables (moderators/predictors) to explain heterogeneity among effect sizes (i.e., meta-regression). Moderators are tested for their overall effect on the maternal PFAS transfer. The moderators I am going to include in the model are:
 
-- type of progeny's tissue
-- type of adult's tissue
-- bird species (*this is probably wrong because it is a random effect already*)
-- PFAS carbon chain length
-- PFAS molecular weight
-- Seabirds vs non-seabirds
-- ...
-- ...
-- ...
+-   type of progeny's tissue
+-   type of adult's tissue
+-   bird species
+-   PFAS carbon chain length
+-   PFAS molecular weight
+-   Seabirds vs non-seabirds
+-   ...
+-   ...
+-   ...
 
 ### Tissue - progeny
 
@@ -694,6 +881,7 @@ orchard_plot(model3, mod = "sample_type_P", group = "study_ID", data = dat, xlab
 ```
 
 ### Tissue - adult
+
 Does "sample_type_A" impact our results on the overall mean and variance?
 
 ```{r, eval=FALSE}
@@ -717,7 +905,8 @@ i2_ml(model4)
 orchard_plot(model4, mod = "sample_type_A", group = "study_ID", data = dat, xlab = "lnRR")
 ```
 
-### Bird species 
+### Bird species
+
 Now, we want to fit a meta-regression model to test whether the moderator "species_ID" impacts our results on the mean and variance.
 
 ```{r, eval=FALSE}
@@ -742,16 +931,59 @@ i2_ml(model5)
 orchard_plot(model5, mod = "species_ID", group = "study_ID", data = dat, xlab = "lnRR")
 ```
 
+### PFAS carbon chain length
+```{r, eval=FALSE}
+
+dat$carbon_chain_length[dat$carbon_chain_length == "mixed"] <- NA
+
+dat$carbon_chain_length <- as.numeric(dat$carbon_chain_length)
+
+model_ccl <- rma.mv(lnRR, var_lnRR,
+              mod = ~ carbon_chain_length,
+              random = list(~1|study_ID, 
+                            ~1|species_ID,
+                            ~1|pfas_ID, 
+                            ~1|es_ID 
+              ),
+              test = "t",
+              data = dat,
+              sparse = TRUE)
+summary(model_ccl)
+i2_ml(model_ccl)
+bubble_plot(model_ccl, mod = "carbon_chain_length", group = "study_ID", data =dat , xlab = "lnRR")
+```
+
+### PFAS molecular weight
+```{r, eval=FALSE}
+dat$molecular_weight[dat$molecular_weight == "mixed"] <- NA
+dat$molecular_weight <- as.numeric(dat$molecular_weight)
+
+model_mw <- rma.mv(lnRR, VCV_lnRR,
+              mod = ~ molecular_weight,
+              random = list(~1|study_ID, 
+                            ~1|species_ID,
+                            ~1|pfas_ID, 
+                            ~1|es_ID 
+              ),
+              test = "t",
+              data = dat,
+              sparse = TRUE)
+summary(model_mw)
+i2_ml(model_mw)
+bubble_plot(model_mw, mod = "molecular_weight", group = "study_ID", data =dat, xlab = "lnRR")
+
+
+cor.test(dat$carbon_chain_length, dat$molecular_weight)
+```
+
+
 ### PFAS type carboxylic acids type
 
-**Here I have a problem**
-If I use VCV_lnRR and then I filter the data, R gives me the error 
-"rror in rma.mv(lnRR, VCV_lnRR, mod = ~pfas_type_acronym, random = list(~1 |  : 
-  Length of 'yi' (239) and length/dimensions of 'V' (371) is not the same."
+**Here I have a problem** If I use VCV_lnRR and then I filter the data, R gives me the error
+
+`"rror in rma.mv(lnRR, VCV_lnRR, mod = ~pfas_type_acronym, random = list(~1 | : Length of 'yi' (239) and length/dimensions of 'V' (371) is not the same."`
+
 Because obviously yi and V have different length/dimensions.
-PLUS,
-I dont know if all this make sense. lol.
-For now, I put everything in eval = FALSE.
 
 ```{r, eval=FALSE}
 model6 <- rma.mv(lnRR, VCV_lnRR,
@@ -768,7 +1000,7 @@ model6 <- rma.mv(lnRR, VCV_lnRR,
 save(model6, file = here("Rdata", "model6.RData"))
 ```
 
-```{r}
+```{r, eval=FALSE}
 load(here("RData", "model6.RData"))
 summary(model6)
 i2_ml(model6)
@@ -793,7 +1025,7 @@ model7 <- rma.mv(lnRR, VCV_lnRR,
 save(model7, file = here("Rdata", "model7.RData"))
 ```
 
-```{r}
+```{r, eval=FALSE}
 load(here("RData", "model7.RData"))
 summary(model7)
 i2_ml(model7)
@@ -816,16 +1048,17 @@ model8 <- rma.mv(lnRR,
 save(model7, file = here("Rdata", "model8.RData"))
 ```
 
-```{r}
+```{r, eval = FALSE}
 load(here("RData", "model8.RData"))
 summary(model8)
 i2_ml(model8)
 orchard_plot(model8, mod = "seabird", group = "study_ID", data = dat, xlab = "lnRR")
 ```
 
-#Publication bias
+# Publication bias
 
 Here I test for publication bias using the year of publication.
+
 ```{r}
 pb_model <- metafor::rma.mv(lnRR, 
               var_lnRR,
@@ -848,7 +1081,7 @@ orchaRd::bubble_plot(pb_bubble,
 
 # Sensitivity analysis - Models
 
-Here we run each model using data for sensitivity analysis (dat2 and dat3).
+- Run a sensitivity analysis with and without the effect sizes that fail Geary's test.
 
 ```{r}
 
