@@ -11,6 +11,41 @@ editor_options:
 
 *Maternal PFAS transfer in wild birds: a systematic review and meta-analysis*
 
+# Research questions
+
+1.  What is the overall maternal PFAS transfer (i.e., the ratio between PFAS concentration in both eggs and hatchling and the adult female) in wild birds, and how variable is it?
+
+2.  Do physicochemical properties of PFAS compounds affect the maternal transfer efficiency in wild birds? Specifically, is the maternal transfer mediated by a compounds':
+
+-   carbon chain length?
+-   functional group?
+-   molecular weight?
+
+3.  Do biological factors of birds affect the maternal PFAS transfer efficiency? Specifically, is the maternal transfer mediated by:
+
+-   feeding ecology or trophic position?
+-   birds' body weight?
+-   average clutch size?
+-   average number of broods per year?
+-   egg mass?
+-   the type of adult bird's tissue analysed?
+-   the type of egg's part or chick's tissue analysed?
+-   the developmental stage of the offspring (i.e., chick vs egg)?
+
+# Objectives
+
+1.  Quantify the overall meta-analytic mean of maternal transfer ratio (i.e., Coffspring/Cfemale) and its variation.
+
+2.  Identify and evaluate sources of heterogeneity related to PFAS properties:
+
+-   Assess whether different types of PFAS have different transfer rates.
+-   Estimate the variance explained for different carbon chain lengths, functional groups, and molecular masses of PFAS.
+
+3.  Identify and evaluate sources of heterogeneity related to biological samples:
+
+-   Assess whether the proportion of maternal transfer is statistically different between seabirds and non-seabirds.
+-   Estimate the variance explained for different feeding ecology, body mass, the average number of eggs in a clutch, the average number of broods per year, egg mass, type of adult bird's tissue analysed, type of egg's part analysed, and developmental stage of the progeny.
+
 # Purpose
 
 This .Rmd document provides the code I used for data processing, data analysing, and visualization.
@@ -66,6 +101,7 @@ pacman::p_load(tidyverse,
                dplyr,
                metafor,
                meta,
+               forestplot,
                orchaRd,
                kableExtra,
                phytools,
@@ -351,7 +387,6 @@ data_dm_all_keys <-
 data_dm_all_keys
 ```
 
-
 ```{r, eval=FALSE}
 data_dm_all_keys %>% 
   dm_draw()
@@ -370,6 +405,7 @@ nt
 ```
 
 Remove characters from carbon chain length and molecular weight
+
 ```{r}
 nt$carbon_chain_length[nt$carbon_chain_length == "mixed"] <- NA
 nt$carbon_chain_length <- as.numeric(nt$carbon_chain_length)
@@ -423,7 +459,6 @@ var_lnRR_ind <- function(mean_A,
 
 ```
 
-
 # Phylogenetic information
 
 Import phylogenetic information and calculate phylogenetic variance-covariance matrix
@@ -465,8 +500,7 @@ sum(is.na(nt$sd_A))
 #[1] 54
 ```
 
-I need to estimate these missing SDs. 
-To do so, I follow the methods proposed by Nakagawa et al., 2022 ([A robust and readily implementable method for the meta-analysis of response ratios with and without missing standard deviations](https://ecoevorxiv.org/repository/view/3753/)).
+I need to estimate these missing SDs. To do so, I follow the methods proposed by Nakagawa et al., 2022 ([A robust and readily implementable method for the meta-analysis of response ratios with and without missing standard deviations](https://ecoevorxiv.org/repository/view/3753/)).
 
 ### Geary's Test
 
@@ -507,8 +541,7 @@ Overall, it looks like we have 6 effects that fail the test. Lajeunesse (2015) r
 
 ### All-cases Method
 
-To implement the all-cases Method, we need to first calculate the between study CV. We will do this with the `cvg_avg` function. 
-Here, we need to do this for the adults and progeny groups as follows, such that variable b_CV_1 and b_CV_2 are the averages for the adults and progeny groups, respectively:
+To implement the all-cases Method, we need to first calculate the between study CV. We will do this with the `cvg_avg` function. Here, we need to do this for the adults and progeny groups as follows, such that variable b_CV_1 and b_CV_2 are the averages for the adults and progeny groups, respectively:
 
 ```{r}
 # Calculate the average between study CV, which will replace missing values.
@@ -630,6 +663,7 @@ VCV_lnRR_noalbumen <- impute_covariance_matrix(dat_noalbumen$var_lnRR,
                                      cluster = dat_noalbumen$measurement_ID_A, 
                                      r = 0.5)
 ```
+
 # Sensitivity analysis - Data
 
 Here I create three data sets to run a sensitivity analysis. The first data set (i.e., dat) will include all the data. The second (i.e., *dat2*) one will drop out data that are from pooled samples (i.e., from adult male + female pooled data) and/or data from adults and progeny that come from different nests. The third one (i.e., *dat3*) will drop out all effect size measures where the PFAS concentration in the adult OR progeny is below the limit of detection/quantification. Eval is false in the following chunks.
@@ -669,9 +703,11 @@ ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon",
 ```
 
 # Forest plot of effect size measurements
-
+*WORK IN PROGRESS*
 ```{r create the forest plot, , eval=FALSE}
-forest(dat$lnRR, dat$var_lnRR)
+forestplot(
+  dat,
+  mean = )
 ```
 
 # Table of sample sizes
@@ -708,7 +744,8 @@ kable(table_sample_sizes) %>%
 ```{r}
 kable(summary(dat), "html") %>% 
   kable_styling("striped", position = "left") %>% 
-    scroll_box(width = "100%", height = "500px")
+    scroll_box(width = "100%", 
+               height = "500px")
 ```
 
 # Meta-analysis {.tabset}
@@ -736,7 +773,10 @@ save(ma_model1, file = here("Rdata", "ma_model1.RData"))
 load(here("RData", "ma_model1.RData"))
 summary(ma_model1)
 i2_ml(ma_model1)
-orchard_plot(ma_model1, group = "study_ID", data = dat, xlab = "lnRR")
+orchard_plot(ma_model1,
+             group = "study_ID",
+             data = dat, 
+             xlab = "lnRR")
 ```
 
 Use i2_sn function to obtain the total I\^2.
@@ -779,14 +819,15 @@ ma_model1_noalbu <- rma.mv(yi = lnRR,
 save(ma_model1_noalbu, file = here("Rdata", "ma_model1_noalbu.RData"))
 ```
 
-
 ```{r}
 load(here("RData", "ma_model1_noalbu.RData"))
 summary(ma_model1_noalbu)
 i2_ml(ma_model1_noalbu)
-orchard_plot(ma_model1_noalbu, group = "study_ID", data = dplyr::filter(dat, sample_type_P != "albumen" ), xlab = "lnRR")
+orchard_plot(ma_model1_noalbu,
+             group = "study_ID", 
+             data = dplyr::filter(dat, sample_type_P != "albumen" ), 
+             xlab = "lnRR")
 ```
-
 
 ```{r, eval=FALSE}
 I2_noalbu <- orchaRd::i2_ml(ma_model1_noalbu)
@@ -804,7 +845,6 @@ orchaRd::orchard_plot(ma_model1_noalbu,
   scale_fill_manual(values="grey") +
   scale_colour_manual(values="grey")
 ```
-
 
 ## Determine the random effect structure
 
@@ -838,8 +878,8 @@ Thus, we remove it from the model.
 
 The effects of the other grouping variables are assumed to be random and are accounted for in the analysis. This allows the model to account for any differences between the groups and to provide more accurate estimates of the relationships between the variables.
 
-Now,
-Determine the random effect structure filtering out albumen
+Now, Determine the random effect structure filtering out albumen
+
 ```{r, eval=FALSE}
 ma_model2_noalbu <- rma.mv(lnRR,
                         VCV_lnRR_noalbumen, # Add `VCV_lnRR` to account for correlated errors between cohorts (shared_controls)
@@ -861,7 +901,10 @@ save(ma_model2_noalbu, file = here("Rdata", "ma_model2_noalbu.RData"))
 load(here("RData", "ma_model2_noalbu.RData"))
 summary(ma_model2_noalbu)
 i2_ml(ma_model2_noalbu)
-orchard_plot(ma_model2_noalbu, group = "study_ID", data = dplyr::filter(dat, sample_type_P != "albumen" ), xlab = "lnRR")
+orchard_plot(ma_model2_noalbu, 
+             group = "study_ID", 
+             data = dplyr::filter(dat, sample_type_P != "albumen" ),
+             xlab = "lnRR")
 ```
 
 Phylogeny does not explain for any variance in this case as well!
@@ -901,7 +944,11 @@ save(mr_model1, file = here("Rdata", "mr_model1.RData"))
 load(here("RData", "mr_model1.RData"))
 summary(mr_model1)
 i2_ml(mr_model1)
-orchard_plot(mr_model1, mod = "sample_type_P", group = "study_ID", data = dat, xlab = "lnRR")
+orchard_plot(mr_model1,
+             mod = "sample_type_P",
+             group = "study_ID", 
+             data = dat,
+             xlab = "lnRR")
 ```
 
 ### Tissue - adult
@@ -926,10 +973,15 @@ save(mr_model2, file = here("Rdata", "mr_model2.RData"))
 load(here("RData", "mr_model2.RData"))
 summary(mr_model2)
 i2_ml(mr_model2)
-orchard_plot(mr_model2, mod = "sample_type_A", group = "study_ID", data = dat, xlab = "lnRR")
+orchard_plot(mr_model2, 
+             mod = "sample_type_A", 
+             group = "study_ID", 
+             data = dat, 
+             xlab = "lnRR")
 ```
 
 ### PFAS carbon chain length
+
 ```{r, eval=FALSE}
 mr_model3 <- rma.mv(lnRR, VCV_lnRR,
               mod = ~ carbon_chain_length,
@@ -949,10 +1001,15 @@ save(mr_model3, file = here("Rdata", "mr_model3.RData"))
 load(here("RData", "mr_model3.RData"))
 summary(mr_model3)
 i2_ml(mr_model3)
-bubble_plot(mr_model3, mod = "carbon_chain_length", group = "study_ID", data =dat , xlab = "carbon_chain_length")
+bubble_plot(mr_model3,
+            mod = "carbon_chain_length",
+            group = "study_ID", 
+            data =dat, 
+            xlab = "carbon_chain_length")
 ```
 
 Filtering out albumen
+
 ```{r, eval = FALSE}
 mr_model3_noalbumen <- rma.mv(lnRR, 
                               VCV_lnRR_noalbumen,
@@ -972,10 +1029,15 @@ save(mr_model3_noalbumen, file = here("Rdata", "mr_model3_noalbumen.RData"))
 load(here("RData", "mr_model3_noalbumen.RData"))
 summary(mr_model3_noalbumen)
 i2_ml(mr_model3_noalbumen)
-bubble_plot(mr_model3_noalbumen, mod = "carbon_chain_length", group = "study_ID", data =dplyr::filter(dat, sample_type_P != "albumen") , xlab = "carbon_chain_length")
+bubble_plot(mr_model3_noalbumen, 
+            mod = "carbon_chain_length",
+            group = "study_ID", 
+            data =dplyr::filter(dat, sample_type_P != "albumen") ,
+            xlab = "carbon_chain_length")
 ```
 
 ### PFAS molecular weight
+
 ```{r, eval=FALSE}
 mr_model4 <- rma.mv(lnRR, VCV_lnRR,
               mod = ~ molecular_weight,
@@ -990,17 +1052,22 @@ mr_model4 <- rma.mv(lnRR, VCV_lnRR,
 save(mr_model4, file = here("Rdata", "mr_model4.RData"))
 ```
 
-
 ```{r, eval=FALSE}
+load(here("RData", "mr_model4.RData"))
 summary(mr_model4)
 i2_ml(mr_model4)
-bubble_plot(mr_model4, mod = "molecular_weight", group = "study_ID", data =dat, xlab = "molecular_weight")
+bubble_plot(mr_model4, 
+            mod = "molecular_weight", 
+            group = "study_ID",
+            data =dat,
+            xlab = "molecular_weight")
 
 # Pearson's correlation
 cor.test(dat$carbon_chain_length, dat$molecular_weight) #extremely high correlated (cor=0.9515476)
 ```
 
 Filtering out albumen
+
 ```{r, eval = FALSE}
 mr_model4_noalbumen <- rma.mv(lnRR, 
                               VCV_lnRR_noalbumen,
@@ -1020,10 +1087,15 @@ save(mr_model4_noalbumen, file = here("Rdata", "mr_model4_noalbumen.RData"))
 load(here("RData", "mr_model4_noalbumen.RData"))
 summary(mr_model4_noalbumen)
 i2_ml(mr_model4_noalbumen)
-bubble_plot(mr_model4_noalbumen, mod = "molecular_weight", group = "study_ID", data =dplyr::filter(dat, sample_type_P != "albumen") , xlab = "molecular_weight")
+bubble_plot(mr_model4_noalbumen,
+            mod = "molecular_weight", 
+            group = "study_ID", 
+            data =dplyr::filter(dat, sample_type_P != "albumen"),
+            xlab = "molecular_weight")
 ```
 
 ### Functional group
+
 ```{r, eval=FALSE}
 mr_model6 <- rma.mv(lnRR, VCV_lnRR,
               mod = ~ functional_group,
@@ -1041,10 +1113,15 @@ save(mr_model6, file = here("Rdata", "mr_model6.RData"))
 ```{r}
 summary(mr_model6)
 i2_ml(mr_model6)
-orchard_plot(mr_model6, mod = "functional_group", group = "study_ID", data =dat, xlab = "lnRR")
+orchard_plot(mr_model6,
+             mod = "functional_group",
+             group = "study_ID",
+             data =dat, 
+             xlab = "lnRR")
 ```
 
 Filtering out albumen
+
 ```{r, eval=FALSE}
 mr_model6_noalbumen <- rma.mv(lnRR, VCV_lnRR_noalbumen,
               mod = ~ functional_group,
@@ -1062,7 +1139,11 @@ save(mr_model6_noalbumen, file = here("Rdata", "mr_model6_noalbumen.RData"))
 ```{r}
 summary(mr_model6_noalbumen)
 i2_ml(mr_model6_noalbumen)
-orchard_plot(mr_model6_noalbumen, mod = "functional_group", group = "study_ID", data =dplyr::filter(dat, sample_type_P != "albumen"), xlab = "lnRR")
+orchard_plot(mr_model6_noalbumen,
+             mod = "functional_group",
+             group = "study_ID", 
+             data =dplyr::filter(dat, sample_type_P != "albumen"),
+             xlab = "lnRR")
 ```
 
 ### Seabirds VS non-seabirds
@@ -1085,7 +1166,11 @@ save(mr_model5, file = here("Rdata", "mr_model5.RData"))
 load(here("RData", "mr_model5.RData"))
 summary(mr_model5)
 i2_ml(mr_model5)
-orchard_plot(mr_model5, mod = "seabird", group = "study_ID", data = dat, xlab = "lnRR")
+orchard_plot(mr_model5, 
+             mod = "seabird", 
+             group = "study_ID",
+             data = dat, 
+             xlab = "lnRR")
 ```
 
 Filtering out albumen
@@ -1108,19 +1193,12 @@ save(mr_model5_noalbumen, file = here("Rdata", "mr_model5_noalbumen.RData"))
 load(here("RData", "mr_model5_noalbumen.RData"))
 summary(mr_model5_noalbumen)
 i2_ml(mr_model5_noalbumen)
-orchard_plot(mr_model5_noalbumen, mod = "seabird", group = "study_ID", data = dplyr::filter(dat, sample_type_P != "albumen"), xlab = "lnRR")
+orchard_plot(mr_model5_noalbumen, 
+             mod = "seabird",
+             group = "study_ID",
+             data = dplyr::filter(dat, sample_type_P != "albumen"),
+             xlab = "lnRR")
 ```
-
-
-
-
-
-
-
-
-
-
-
 
 # Publication bias
 
@@ -1135,7 +1213,6 @@ mr_model_pb <- metafor::rma.mv(lnRR,
                             data = dat)
 save(mr_model_pb, file = here("Rdata", "mr_model_pb.RData"))
 ```
-
 
 ```{r}
 load(here("RData", "mr_model_pb.RData"))
@@ -1155,7 +1232,7 @@ orchaRd::bubble_plot(pb_bubble,
 
 # Sensitivity analysis - Models
 
-- Run a sensitivity analysis with and without the effect sizes that fail Geary's test.
+-   Run a sensitivity analysis with and without the effect sizes that fail Geary's test.
 
 # Tries
 
