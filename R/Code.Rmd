@@ -581,6 +581,8 @@ nt2 <- cv_avg(x = mean_P,
 ```{r Calculating lnRR and Variance}
 # Calculate the squared coefficient of variation for adult and progeny groups
 
+# This part of the chunk has been called out as we have already estimated b_CV2_1 and b_CV2_2 in the previous chunk.
+
 # aCV2 <- nt2 %>% 
 #   group_by(study_ID) %>%
 #   summarise(CV2a = mean((sd_A/mean_A)^2, na.rm = T),
@@ -618,6 +620,8 @@ Now, we need to account for correlated errors (i.e. effectively dividing the wei
 VCV_lnRR <- impute_covariance_matrix(dat$var_lnRR,
                                      cluster = dat$measurement_ID_A, 
                                      r = 0.5)
+
+# # Making the same in a data set without albumen (as it brings strong heterogeneity)
 
 dat_noalbumen <-  dat %>% 
   dplyr::filter(sample_type_P != "albumen")
@@ -868,7 +872,6 @@ Now that the effects of the grouping variables are modeled as random effects, we
 
 -   type of progeny's tissue
 -   type of adult's tissue
--   bird species
 -   PFAS carbon chain length
 -   PFAS molecular weight
 -   Seabirds vs non-seabirds
@@ -1020,6 +1023,48 @@ i2_ml(mr_model4_noalbumen)
 bubble_plot(mr_model4_noalbumen, mod = "molecular_weight", group = "study_ID", data =dplyr::filter(dat, sample_type_P != "albumen") , xlab = "molecular_weight")
 ```
 
+### Functional group
+```{r, eval=FALSE}
+mr_model6 <- rma.mv(lnRR, VCV_lnRR,
+              mod = ~ functional_group,
+              random = list(~1|study_ID, 
+                            ~1|species_ID,
+                            ~1|pfas_ID, 
+                            ~1|es_ID 
+              ),
+              test = "t",
+              data = dat,
+              sparse = TRUE)
+save(mr_model6, file = here("Rdata", "mr_model6.RData"))
+```
+
+```{r}
+summary(mr_model6)
+i2_ml(mr_model6)
+orchard_plot(mr_model6, mod = "functional_group", group = "study_ID", data =dat, xlab = "lnRR")
+```
+
+Filtering out albumen
+```{r, eval=FALSE}
+mr_model6_noalbumen <- rma.mv(lnRR, VCV_lnRR_noalbumen,
+              mod = ~ functional_group,
+              random = list(~1|study_ID, 
+                            ~1|species_ID,
+                            ~1|pfas_ID, 
+                            ~1|es_ID 
+              ),
+              test = "t",
+              data = dplyr::filter(dat, sample_type_P != "albumen"),
+              sparse = TRUE)
+save(mr_model6_noalbumen, file = here("Rdata", "mr_model6_noalbumen.RData"))
+```
+
+```{r}
+summary(mr_model6_noalbumen)
+i2_ml(mr_model6_noalbumen)
+orchard_plot(mr_model6_noalbumen, mod = "functional_group", group = "study_ID", data =dplyr::filter(dat, sample_type_P != "albumen"), xlab = "lnRR")
+```
+
 ### Seabirds VS non-seabirds
 
 ```{r, eval = FALSE}
@@ -1065,6 +1110,17 @@ summary(mr_model5_noalbumen)
 i2_ml(mr_model5_noalbumen)
 orchard_plot(mr_model5_noalbumen, mod = "seabird", group = "study_ID", data = dplyr::filter(dat, sample_type_P != "albumen"), xlab = "lnRR")
 ```
+
+
+
+
+
+
+
+
+
+
+
 
 # Publication bias
 
