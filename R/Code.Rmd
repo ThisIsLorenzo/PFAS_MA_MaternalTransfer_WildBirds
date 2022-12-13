@@ -778,15 +778,6 @@ save(ma_model1, file = here("Rdata", "ma_model1.RData"))
 load(here("RData", "ma_model1.RData"))
 summary(ma_model1)
 i2_ml(ma_model1)
-
-# TODO
-ma_model1r <- robust(ma_model1, cluster=study_ID, clubSandwich = T)
-summary(ma_model1r)
-
-orchard_plot(ma_model1,
-             group = "study_ID",
-             data = dat, 
-             xlab = "lnRR")
 ```
 
 From previous graph we can see that overall estimate from a random-effects meta-analysis of 371 effect sizes is centered on zero, with a 95% CI that spans the line of no-effect.
@@ -905,11 +896,11 @@ Now, Determine the random effect structure filtering out albumen
 ```{r, eval=FALSE}
 ma_model2_noalbu <- rma.mv(lnRR,
                         VCV_lnRR_noalbumen, # Add `VCV_lnRR` to account for correlated errors between cohorts (shared_controls)
-                        random = list(~1|study_ID, # Identity of the study
-                                      ~1|Phylogeny, # Phylogenetic correlation between species
-                                      ~1|species_ID, # Identity of the species
-                                      ~1|pfas_ID, # Type of PFAS
-                                      ~1|es_ID # Effect size identity
+                        random = list(~1|study_ID,
+                                      ~1|Phylogeny, 
+                                      ~1|species_ID, 
+                                      ~1|pfas_ID,
+                                      ~1|es_ID
                                       ),
                         R = list(Phylogeny = cor_tree), # Assign the 'Phylogeny' argument to the phylogenetic variance-covariance matrix
                         test = "t",
@@ -931,7 +922,7 @@ orchard_plot(ma_model2_noalbu,
 
 Phylogeny does not explain for any variance in this case as well!
 
-## Meta-regression model
+## Meta-regression models
 
 Now that the effects of the grouping variables are modeled as random effects, we include in the model additional variables (moderators/predictors) to explain heterogeneity among effect sizes (i.e., meta-regression). Moderators are tested for their overall effect on the maternal PFAS transfer. The moderators I am going to include in the model are:
 
@@ -951,11 +942,11 @@ Does "sample_type_P" impact our results on the overall mean and variance?
 ```{r, eval=FALSE}
 mr_model1 <- rma.mv(lnRR, VCV_lnRR,
               mod = ~ sample_type_P,# + sample_type_A,
-              random = list(~1|study_ID, # Identity of the study
+              random = list(~1|study_ID,
                             ~1|species_ID,
-                            ~1|pfas_ID, # Type of PFAS
-                            ~1|es_ID # Effect size identity
-              ),
+                            ~1|pfas_ID,
+                            ~1|es_ID
+                            ),
               test = "t",
               data = dat,
               sparse = TRUE)
@@ -1154,10 +1145,10 @@ dat$albumen <- ifelse(dat$sample_type_P == "albumen", "albumen", "others")
 
 mr_modelX <- rma.mv(lnRR, VCV_lnRR,
               mod = ~ albumen*carbon_chain_length,
-              random = list(~1|study_ID, # Identity of the study
+              random = list(~1|study_ID,
                             ~1|species_ID,
-                            ~1|pfas_ID, # Type of PFAS
-                            ~1|es_ID # Effect size identity
+                            ~1|pfas_ID,
+                            ~1|es_ID 
               ),
               test = "t",
               data = dat,
@@ -1185,10 +1176,10 @@ bubble_plot(mr_modelX,
 
 mr_modelX1 <- rma.mv(lnRR, VCV_lnRR,
               mod = ~ functional_group - 1 + scale(carbon_chain_length),
-              random = list(~1|study_ID, # Identity of the study
+              random = list(~1|study_ID, 
                             ~1|species_ID,
-                            ~1|pfas_ID, # Type of PFAS
-                            ~1|es_ID # Effect size identity
+                            ~1|pfas_ID, 
+                            ~1|es_ID 
               ),
               test = "t",
               data = dat,
@@ -1234,60 +1225,6 @@ orchard_plot(mr_model6_noalbumen,
              mod = "functional_group",
              group = "study_ID", 
              data =dplyr::filter(dat, sample_type_P != "albumen"),
-             xlab = "lnRR")
-```
-
-### Seabirds VS non-seabirds
-
-```{r, eval = FALSE}
-mr_model5 <- rma.mv(lnRR,
-              VCV_lnRR,
-              mods = ~ seabird,
-              random = list(~1|study_ID, 
-                            ~1|species_ID,
-                            ~1|pfas_ID, 
-                            ~1|es_ID 
-              ),
-              test = "t",
-              data = dat)
-save(mr_model5, file = here("Rdata", "mr_model5.RData"))
-```
-
-```{r}
-load(here("RData", "mr_model5.RData"))
-summary(mr_model5)
-i2_ml(mr_model5)
-orchard_plot(mr_model5, 
-             mod = "seabird", 
-             group = "study_ID",
-             data = dat, 
-             xlab = "lnRR")
-```
-
-Filtering out albumen
-
-```{r, eval = FALSE}
-mr_model5_noalbumen <- rma.mv(lnRR,
-              VCV_lnRR_noalbumen,
-              mods = ~ seabird,
-              random = list(~1|study_ID, 
-                            ~1|species_ID,
-                            ~1|pfas_ID, 
-                            ~1|es_ID
-                            ),
-              test = "t",
-              data = dplyr::filter(dat, sample_type_P != "albumen"))
-save(mr_model5_noalbumen, file = here("Rdata", "mr_model5_noalbumen.RData"))
-```
-
-```{r}
-load(here("RData", "mr_model5_noalbumen.RData"))
-summary(mr_model5_noalbumen)
-i2_ml(mr_model5_noalbumen)
-orchard_plot(mr_model5_noalbumen, 
-             mod = "seabird",
-             group = "study_ID",
-             data = dplyr::filter(dat, sample_type_P != "albumen"),
              xlab = "lnRR")
 ```
 
