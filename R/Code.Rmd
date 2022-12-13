@@ -780,6 +780,17 @@ summary(ma_model1)
 i2_ml(ma_model1)
 ```
 
+```{r}
+# TODO
+# ma_model1r <- robust(ma_model1, cluster=study_ID, clubSandwich = T)
+# summary(ma_model1r)
+# orchard_plot(ma_model1,
+#              group = "study_ID",
+#              data = dat, 
+#              xlab = "lnRR")
+```
+
+
 From previous graph we can see that overall estimate from a random-effects meta-analysis of 371 effect sizes is centered on zero, with a 95% CI that spans the line of no-effect.
 
 Now,
