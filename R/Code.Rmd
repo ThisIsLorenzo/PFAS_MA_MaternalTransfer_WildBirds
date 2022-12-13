@@ -705,9 +705,9 @@ ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon",
 # Forest plot of effect size measurements
 *WORK IN PROGRESS*
 ```{r create the forest plot, , eval=FALSE}
-forestplot(
+forest(
   dat,
-  mean = )
+  )
 ```
 
 # Table of sample sizes
@@ -1111,6 +1111,7 @@ save(mr_model6, file = here("Rdata", "mr_model6.RData"))
 ```
 
 ```{r}
+load(here("RData", "mr_model6.RData"))
 summary(mr_model6)
 i2_ml(mr_model6)
 orchard_plot(mr_model6,
@@ -1137,6 +1138,7 @@ save(mr_model6_noalbumen, file = here("Rdata", "mr_model6_noalbumen.RData"))
 ```
 
 ```{r}
+load(here("RData", "mr_model6_noalbumen.RData"))
 summary(mr_model6_noalbumen)
 i2_ml(mr_model6_noalbumen)
 orchard_plot(mr_model6_noalbumen,
@@ -1182,8 +1184,8 @@ mr_model5_noalbumen <- rma.mv(lnRR,
               random = list(~1|study_ID, 
                             ~1|species_ID,
                             ~1|pfas_ID, 
-                            ~1|es_ID 
-              ),
+                            ~1|es_ID
+                            ),
               test = "t",
               data = dplyr::filter(dat, sample_type_P != "albumen"))
 save(mr_model5_noalbumen, file = here("Rdata", "mr_model5_noalbumen.RData"))
@@ -1208,8 +1210,11 @@ Here I test for publication bias using the year of publication.
 mr_model_pb <- metafor::rma.mv(lnRR,
                             var_lnRR,
                             mods = ~ year_publication,
-                            random = list(~1|es_ID,
-                                          ~1|study_ID),
+                            random = list(~1|study_ID, 
+                            ~1|species_ID,
+                            ~1|pfas_ID, 
+                            ~1|es_ID
+                            ),
                             data = dat)
 save(mr_model_pb, file = here("Rdata", "mr_model_pb.RData"))
 ```
