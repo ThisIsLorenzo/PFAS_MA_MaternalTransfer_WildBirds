@@ -705,9 +705,9 @@ ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon",
 # Forest plot of effect size measurements
 *WORK IN PROGRESS*
 ```{r create the forest plot, , eval=FALSE}
-forest(
+forest.meta(
   dat,
-  )
+  yi = "lnRR", vi = "var_nlRR")
 ```
 
 # Table of sample sizes
@@ -761,8 +761,12 @@ Intercept meta-analytic model:
 ```{r, eval=FALSE}
 ma_model1 <- rma.mv(yi = lnRR,
              V = VCV_lnRR, # Add `VCV_lnRR` to account for correlated errors
-             random = list(~1|es_ID,
-                           ~1|study_ID),
+             random = list(~1|study_ID, # Identity of the study
+                            ~1|Phylogeny, # Phylogenetic correlation between species
+                            ~1|species_ID, # Identity of the species
+                            ~1|pfas_ID, # Type of PFAS
+                            ~1|es_ID # Effect size identity
+              ),
              test = "t",
              data = dat)
 
@@ -779,7 +783,14 @@ orchard_plot(ma_model1,
              xlab = "lnRR")
 ```
 
-Use i2_sn function to obtain the total I\^2.
+From previous graph we can see that overall estimate from a random-effects meta-analysis of 371 effect sizes is centered on zero, with a 95% CI that spans the line of no-effect.
+
+Now,
+Use i2_ml function to obtain the total I^2.
+The I^2 statistic (J. P. Higgins and Thompson 2002) quantifies between-study heterogeneity. It is defined as the percentage of variability in the effect sizes that is not caused by sampling error.
+I^2 draws on the assumption that Q follows a χ^2 distribution with K−1 degrees of freedom under the null hypothesis of no heterogeneity.
+It is calculated as the percentage of total variation in effect sizes that is due to between-study heterogeneity, rather than sampling error within each study.
+More info here: https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/heterogeneity.html
 
 ```{r}
 I2 <- orchaRd::i2_ml(ma_model1)
@@ -792,13 +803,16 @@ orchaRd::orchard_plot(ma_model1,
   annotate(geom="text",
            x= 0.80,
            y= 1, 
-           label= paste0("italic(I)^{2} == ", round(I2[1],4)), # I want to use % but cannot do should come back
-              color="black", parse = TRUE, size = 5) +
+           label= paste0("italic(I)^{2} == ", round(I2[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 5) +
   scale_fill_manual(values="grey") +
   scale_colour_manual(values="grey")
 ```
 
-From previous graphs we can see that overall estimate from a random-effects meta-analysis of 371 effect sizes is centered on zero, with a 95% CI that spans the line of no-effect. The prediction intervals clearly demonstrate the high level of heterogeneity (over 95%).
+A value of I^2 = 99 means that 99% of the total variation in effect sizes is due to between-study heterogeneity, indicating a high level of inconsistency or heterogeneity among the studies included in the analysis. This may suggest that the studies are not comparable, or that there are important differences in the methods, populations, or outcomes that are not accounted for in the analysis. In such cases, it may be difficult to draw reliable conclusions from the meta-analysis.
+
 
 We can now draw a comparable caterpillar plot by using the function caterpillars. This caterpillar plot does not tell us anything new that the orchard plot didn't. But it can be compared to the orchard plot.
 
@@ -840,11 +854,13 @@ orchaRd::orchard_plot(ma_model1_noalbu,
   annotate(geom="text",
            x= 0.80,
            y= 1, 
-           label= paste0("italic(I)^{2} == ", round(I2_noalbu[1],4)), # I want to use % but cannot do should come back
+           label= paste0("italic(I)^{2} == ", round(I2_noalbu[1],4)),
               color="black", parse = TRUE, size = 5) +
   scale_fill_manual(values="grey") +
   scale_colour_manual(values="grey")
 ```
+
+The value of I^2 is still very high (i.e., 97%).
 
 ## Determine the random effect structure
 
@@ -852,13 +868,13 @@ Test the random effects of five variables: study's identity, Phylogenetic correl
 
 ```{r, eval=FALSE}
 ma_model2 <- rma.mv(lnRR, VCV_lnRR,
-              random = list(~1|study_ID, # Identity of the study
-                            ~1|Phylogeny, # Phylogenetic correlation between species
-                            ~1|species_ID, # Identity of the species
-                            ~1|pfas_ID, # Type of PFAS
-                            ~1|es_ID # Effect size identity
+              random = list(~1|study_ID,
+                            ~1|Phylogeny,
+                            ~1|species_ID, 
+                            ~1|pfas_ID, 
+                            ~1|es_ID
               ),
-              R = list(Phylogeny = cor_tree), # Assign the 'Phylogeny' argument to the phylogenetic variance-covariance matrix
+              R = list(Phylogeny = cor_tree),
               test = "t",
               data = dat,
               sparse = TRUE) # Make the model run faster
