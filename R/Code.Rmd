@@ -132,6 +132,8 @@ sp <- sp %>%
 pfas <- pfas %>% 
   select(-("Timestamp")) %>% 
   select(-(ends_with("comment")))
+pfas <- pfas %>% 
+  dplyr::mutate(functional_group = ifelse(functional_group == "Carboxylic acid", "Carboxylate / carboxylic acid", functional_group))
 co <- co %>% 
   select(-("Timestamp")) %>%
   select(-(ends_with("comment")))
@@ -204,7 +206,8 @@ me1 <-
 colnames(me1)
 ```
 
-Now I want to create a new column called "es_ID" which matches all the pairs of measurement I will use in the escalc() function to calculate the effect size measurements. Study, PFAS type, species, and sampling location must be the same, so I group by them. The group (i.e., group_info) must be different, so that I pair adult-progeny in all possible combinations (different tissues in adults, eggs, chicks).
+Now I want to create a new column called "es_ID" which matches all the pairs of measurement I will use in the escalc() function to calculate the effect size measurements. 
+Study, PFAS type, species, and sampling location must be the same, so I group by them. The group (i.e., group_info) must be different, so that I pair adult-progeny in all possible combinations (different tissues in adults, eggs, chicks).
 
 ```{r}
 list_dat <- 
@@ -364,6 +367,16 @@ ntable <-
                   is.na(mean_arithmetic_P) == "FALSE")
 ```
 
+Remove characters from carbon chain length and molecular weight
+
+```{r}
+pfas$carbon_chain_length[pfas$carbon_chain_length == "mixed"] <- NA
+pfas$carbon_chain_length <- as.numeric(pfas$carbon_chain_length)
+
+pfas$molecular_weight[pfas$molecular_weight == "mixed"] <- NA
+pfas$molecular_weight <- as.numeric(pfas$molecular_weight)
+```
+
 #DM object
 
 Rebuilt the dm object with the new ntable.
@@ -404,19 +417,52 @@ nt <-
 nt
 ```
 
-Remove characters from carbon chain length and molecular weight
+# Forumulas
 
-```{r}
-nt$carbon_chain_length[nt$carbon_chain_length == "mixed"] <- NA
-nt$carbon_chain_length <- as.numeric(nt$carbon_chain_length)
+To assess the transfer of PFAS from mothers to their offspring, we used the logarithm of response ratio (lnRR) as our effect size, an approach initially proposed by Hedges et al. (1999) and later developed by Lajeunesse (2011) and Senior et al. (2020). The point and variance estimates for lnRR and v(lnRR) can be expressed as follows:
 
-nt$molecular_weight[nt$molecular_weight == "mixed"] <- NA
-nt$molecular_weight <- as.numeric(nt$molecular_weight)
-```
+$$
+\ln{\text{RR}} = \ln \left( \frac{m_{T}} {m_{C}}\right) + 
+\frac{1}{2} \left(\frac{\text{CV}_T^2} {n_{T}} - \frac{\text{CV}_C^2} {n_{C}}\right)
+$$
+$$
+v(\ln{\text{RR}}) = \frac{\text{CV}_T^2} {n_{T}} + \frac{\text{CV}_C^2} {n_{C}} - 2r_{TC}\frac{\text{CV}_T \text{CV}_C}{\sqrt{n_Cn_T}}
+$$ $n_{T} = n_{C} = n$
+
+where mT and mC are the sample means for the treatment (progeny) and control (adults) groups, respectively, nT and nC are
+the sample sizes for the two groups and CV is the coefficient of variation; that is, CVC = sdT /mT and CVC = sdC/mC, with sd being the (sample) standard deviation.
+
+For obvious reasons, all our included studies used independent 2-group design. Thus, we set rTC = 0.
+
+$$
+v(\ln{\text{RR}}) = \frac{\text{CV}_T^2} {n_{T}} + \frac{\text{CV}_C^2} {n_{C}}
+$$
+
+Spake and Doncaster (2017) showed that sampling variance esti-
+mates that include sample standard deviation are
+likely to be downwardly biased when sample sizes (n) are small (n < 50).
+Our sample sizes (n) per effect size were between 1 and 38, with the
+average of 24.3. *these values are PROBABLY WRONG* - Should I use N_tilde (min, max, mean)?
+The use of the averaged CV was shown to reduce the bias identified by Doncaster and Spake (2017).
+
+Accordingly, we used:
+
+$$
+\ln{\text{RR}} = \ln \left( \frac{m_{T}} {m_{C}}\right) + 
+\frac{1}{2} \left(\frac{\sum_{i=1}^{k}{\text{CV}_{Ti}^2}/k} {n_{T}} - \frac{\sum_{i=1}^{k}{\text{CV}_{Ci}^2}/k} {n_{C}}\right)
+$$
+$$
+v(\ln{\text{RR}})= \frac{\sum_{i=1}^{k}{\text{CV}_{Ti}^2}/k} {n_{T
+}} + \frac{\sum_{i=1}^{k}{\text{CV}_{Ci}^2}/k} {n_{C}}
+$$
+
+where k is the number of effect sizes (or studies) and the other symbols are the same as the above.
 
 # Functions
 
 The `lnRR_func` function is here used to calculate a log response ratio (lnRR) adjusted for small sample sizes. In addition, this formula accounts for correlated samples. For more details, see *Doncaster and Spake (2018) Correction for bias in meta-analysis of little-replicated studies. Methods in Ecology and Evolution; 9:634-644*
+
+lnRR (point estimate) and var_nlRR ([sampling] variance estimate) forumulas are from Hedges et al. (1999) and subsequently extended by Lajeunesse (2011) and Senior et al. (2020).
 
 ```{r function to calculate effect size}
 #Changing columns names to make them shorter
@@ -450,12 +496,12 @@ var_lnRR_ind <- function(mean_A,
   
   var_lnRR
   }
-# Mc: Concentration of PFAS of the raw (control) sample
-# Nc: Sample size of the raw (control) sample
-# Me: Concentration of PFAS of the cooked (experimental) sample
-# Ne: Sample size of the cooked (experimental) sample 
-# aCV2c: Mean coefficient of variation of the raw (control) samples
-# aCV2e: Mean coefficient of variation of the cooked (experimental) samples
+# mean_A: Concentration of PFAS in the adult sample
+# n_A: Sample size of the adult sample
+# mean_P: Concentration of PFAS of the progeny sample
+# n_P: Sample size of the progeny sample 
+# aCV2a: Mean coefficient of variation of the adult samples
+# aCV2p: Mean coefficient of variation of the progeny samples
 
 ```
 
@@ -487,64 +533,15 @@ match(nt2$Phylogeny, colnames(cor_tree))
 plot(tree)
 ```
 
-# Effect sizes
+# Effect sizes calculation
 
-## Missing standard deviation values
+## Averaged coefficient of variation
 
-How many sd values are missing in the data frame?
+We follow the methods proposed by Nakagawa et al., 2022 ([A robust and readily implementable method for the meta-analysis of response ratios with and without missing standard deviations](https://ecoevorxiv.org/repository/view/3753/) to calculate the averaged coefficient of variation across studies.
 
-```{r}
-sum(is.na(nt$sd_P))
-#[1] 81
-sum(is.na(nt$sd_A))
-#[1] 54
-```
-
-I need to estimate these missing SDs. To do so, I follow the methods proposed by Nakagawa et al., 2022 ([A robust and readily implementable method for the meta-analysis of response ratios with and without missing standard deviations](https://ecoevorxiv.org/repository/view/3753/)).
-
-### Geary's Test
-
-How well missing SD methods perform (and indeed whether lnRR is suitable at all) depends on whether lnRR is normally distributed. We can use a modified Geary's Test (Lajeunesse 2015) to ascertain effects that may be problematic.
+We will first calculate the between study CV using the `cvg_avg` function. Here, we need to do this for the adults and progeny groups as follows, such that variable b_CV_1 and b_CV_2 are the averages for the adults and progeny groups, respectively. Then, we calculate the average between study CV, which will replace missing values.
 
 ```{r}
-# Function to calculate Geary's "number"
-  geary <- function(mean, 
-                    sd, 
-                    n)
-    {
-    (1 / (sd / mean)) * ((4*n)^(3/2) / (1 + 4*n))
-    }
-
-# Geary's test; assumption of normality assumed to be approximately correct when values are >= 3.
-nt <- nt %>% 
-         mutate(geary_control = geary(mean_A,
-                                      sd_A,
-                                      n_A),
-                    geary_trt = geary(mean_P, 
-                                      sd_P,
-                                      n_P),
-                   geary_test = ifelse(geary_control >= 3 & geary_trt >= 3, "pass", "fail"))
-# How many fail?
-geary_res <- nt %>% 
-      group_by(geary_test) %>% 
-      summarise(n = n()) %>% 
-      data.frame()
-
-geary_res
-#   geary_test   n
-# 1       fail   6
-# 2       pass 238
-# 3       <NA> 127
-```
-
-Overall, it looks like we have 6 effects that fail the test. Lajeunesse (2015) recommend doing a sensitivity analysis with and without the effect sizes that fail the test.
-
-### All-cases Method
-
-To implement the all-cases Method, we need to first calculate the between study CV. We will do this with the `cvg_avg` function. Here, we need to do this for the adults and progeny groups as follows, such that variable b_CV_1 and b_CV_2 are the averages for the adults and progeny groups, respectively:
-
-```{r}
-# Calculate the average between study CV, which will replace missing values.
 cv_avg <- function(x, 
                    sd, 
                    n, 
@@ -554,7 +551,7 @@ cv_avg <- function(x,
                    sub_b = TRUE, 
                    cv2=FALSE){
 
-  # Check if the name is specified or not. If not, then assign it the name of the mean, x, variable input in the function. https://stackoverflow.com/questions/60644445/converting-tidyeval-arguments-to-string
+# Check if the name is specified or not. If not, then assign it the name of the mean, x, variable input in the function. https://stackoverflow.com/questions/60644445/converting-tidyeval-arguments-to-string
   
 if(is.null(label)){
   label <- purrr::map_chr(enquos(x), rlang::as_label)
@@ -611,17 +608,17 @@ nt2 <- cv_avg(x = mean_P,
              data = nt2)
 ```
 
+## lnRR and variance calculations
+
 ```{r Calculating lnRR and Variance}
-# Calculate the squared coefficient of variation for adult and progeny groups
+# Calculate the squared coefficient of variation for adult and progeny groups. This part of the chunk has been called out as we have already estimated aCV2a and aCV2p in the previous chunk.
 
-# This part of the chunk has been called out as we have already estimated b_CV2_1 and b_CV2_2 in the previous chunk.
-
-# aCV2 <- nt2 %>% 
+# aCV2 <- nt2 %>%
 #   group_by(study_ID) %>%
 #   summarise(CV2a = mean((sd_A/mean_A)^2, na.rm = T),
-#             CV2p = mean((sd_P/mean_P)^2, na.rm = T)) %>% 
-#   ungroup() %>% # ungroup 
-#   summarise(aCV2a = mean(CV2a, na.rm = T), # Mean CV^2 for adult and progeny groups across studies 
+#             CV2p = mean((sd_P/mean_P)^2, na.rm = T)) %>%
+#   ungroup() %>% # ungroup
+#   summarise(aCV2a = mean(CV2a, na.rm = T), # Mean CV^2 for adult and progeny groups across studies
 #             aCV2p = mean(CV2p, na.rm = T))
 
 lnRR <- lnRR_func(mean_A = nt2$mean_A,
@@ -638,13 +635,13 @@ var_lnRR <- var_lnRR_ind(mean_A = nt2$mean_A,
                          aCV2a = nt2$b_CV2_1,
                          aCV2p = nt2$b_CV2_2) 
 
-
-
 dat <- nt2 %>% 
   dplyr::mutate(N_tilde = (n_A*n_P)/(n_A + n_P)) # getting effective sample size
 
 dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
 ```
+
+## Variance-covariance
 
 Now, we need to account for correlated errors (i.e. effectively dividing the weight of the correlated estimates by half) because some effect sizes share the same control(adult). For this purpose, I calculate the variance-covariance from the log response ratio variance. Variance-covariance is a measure of how two random variables are related. The variance-covariance matrix is a square matrix that shows the variances and covariances of a set of random variables. The diagonal elements of the matrix show the variances of the individual random variables, while the off-diagonal elements show the covariances between pairs of variables.
 
@@ -654,7 +651,7 @@ VCV_lnRR <- impute_covariance_matrix(dat$var_lnRR,
                                      cluster = dat$measurement_ID_A, 
                                      r = 0.5)
 
-# # Making the same in a data set without albumen (as it brings strong heterogeneity)
+# Making the same in a data set without albumen (as it brings strong heterogeneity)
 
 dat_noalbumen <-  dat %>% 
   dplyr::filter(sample_type_P != "albumen")
@@ -662,7 +659,45 @@ dat_noalbumen <-  dat %>%
 VCV_lnRR_noalbumen <- impute_covariance_matrix(dat_noalbumen$var_lnRR,
                                      cluster = dat_noalbumen$measurement_ID_A, 
                                      r = 0.5)
+
 ```
+
+## Geary's Test - *REMOVE?*
+
+How well missing SD methods perform (and indeed whether lnRR is suitable at all) depends on whether lnRR is normally distributed. We can use a modified Geary's Test (Lajeunesse 2015) to ascertain effects that may be problematic.
+
+```{r}
+# Function to calculate Geary's "number"
+  geary <- function(mean, 
+                    sd, 
+                    n)
+    {
+    (1 / (sd / mean)) * ((4*n)^(3/2) / (1 + 4*n))
+    }
+
+# Geary's test; assumption of normality assumed to be approximately correct when values are >= 3.
+nt <- nt %>% 
+         mutate(geary_control = geary(mean_A,
+                                      sd_A,
+                                      n_A),
+                    geary_trt = geary(mean_P, 
+                                      sd_P,
+                                      n_P),
+                   geary_test = ifelse(geary_control >= 3 & geary_trt >= 3, "pass", "fail"))
+# How many fail?
+geary_res <- nt %>% 
+      group_by(geary_test) %>% 
+      summarise(n = n()) %>% 
+      data.frame()
+
+geary_res
+#   geary_test   n
+# 1       fail   6
+# 2       pass 238
+# 3       <NA> 127
+```
+
+Overall, it looks like we have 6 effects that fail the test. Lajeunesse (2015) recommend doing a sensitivity analysis with and without the effect sizes that fail the test.
 
 # Sensitivity analysis - Data
 
@@ -672,6 +707,10 @@ Here I create three data sets to run a sensitivity analysis. The first data set 
 dat2 <-
   dat %>%
   dplyr::filter(data_pooled == "No" & nest == "Yes")
+
+VCV_lnRR_dat2 <- impute_covariance_matrix(dat2$var_lnRR,
+                                          cluster = dat2$measurement_ID_A,
+                                          r = 0.5)
 ```
 
 Remove all effect sizes where concentration in the adult OR progeny is below the limit of detection/quantification
@@ -683,7 +722,8 @@ dat3 <-
   dplyr::filter(if_all(c(limit_type_A, limit_type_P), ~is.na(.)))
 ```
 
-# Distribution of effect sizes
+# Graphics
+## Distribution of effect sizes
 
 Plotting effect size measurements distribution
 
@@ -702,15 +742,16 @@ ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon",
                                              binwidth = 0.05) + scale_x_log10()+theme_classic()
 ```
 
-# Forest plot of effect size measurements
+## Forest plot of effect size measurements
 *WORK IN PROGRESS*
-```{r create the forest plot, , eval=FALSE}
+```{r create the forest plot, eval=FALSE}
 forest.meta(
   dat,
   yi = "lnRR", vi = "var_nlRR")
 ```
 
-# Table of sample sizes
+# Summary
+## Table of sample sizes
 
 ```{r}
 table_sample_sizes <- dat %>% 
@@ -739,7 +780,7 @@ kable(table_sample_sizes) %>%
   kable_styling("striped", position="left")
 ```
 
-# Summary of the dataset
+## Summary of the dataset
 
 ```{r}
 kable(summary(dat), "html") %>% 
@@ -748,18 +789,14 @@ kable(summary(dat), "html") %>%
                height = "500px")
 ```
 
-# Meta-analysis {.tabset}
+# Meta-analytical models
 
-## Intercept meta-analytical model
+## Determine the random effect structure
 
-Now that we calculated the effect size measures, we fit an intercept only, meta-analytic model.
-
-Read <https://daniel1noble.github.io/orchaRd/> for more details on making pretty plots.
-
-Intercept meta-analytic model:
+The random effects model is used to account for between-study heterogeneity, which is the variability in effect sizes among the studies being analyzed. When determining the random effect structure, we are trying to identify the sources of this heterogeneity and to quantify the degree to which it is present in the data.
 
 ```{r, eval=FALSE}
-ma_model1 <- rma.mv(yi = lnRR,
+ma_all_random_effects <- rma.mv(yi = lnRR,
              V = VCV_lnRR, # Add `VCV_lnRR` to account for correlated errors
              random = list(~1|study_ID, # Identity of the study
                             ~1|Phylogeny, # Phylogenetic correlation between species
@@ -771,29 +808,72 @@ ma_model1 <- rma.mv(yi = lnRR,
              test = "t",
              data = dat)
 
-save(ma_model1, file = here("Rdata", "ma_model1.RData"))
+save(ma_all_random_effects, file = here("Rdata", "ma_all_random_effects.RData"))
 ```
 
 ```{r}
-load(here("RData", "ma_model1.RData"))
-summary(ma_model1)
-i2_ml(ma_model1)
+load(here("RData", "ma_all_random_effects.RData"))
+orchard_plot(ma_all_random_effects,
+             group = "study_ID", 
+             data = dat, 
+             xlab = "lnRR")
 ```
-
-```{r}
-# TODO
-# ma_model1r <- robust(ma_model1, cluster=study_ID, clubSandwich = T)
-# summary(ma_model1r)
-# orchard_plot(ma_model1,
-#              group = "study_ID",
-#              data = dat, 
-#              xlab = "lnRR")
-```
-
 
 From previous graph we can see that overall estimate from a random-effects meta-analysis of 371 effect sizes is centered on zero, with a 95% CI that spans the line of no-effect.
 
-Now,
+```{r}
+summary(ma_all_random_effects)
+i2_ml(ma_all_random_effects)
+```
+
+Phylogeny does not explain for any variance. (sigma squared = 0.0000)
+Species_ID does not explain for any variance. (sigma squared = 0.0000)
+
+Thus, we remove them from the model.
+
+The effects of the other grouping variables are assumed to be random and are accounted for in the analysis. This allows the model to account for any differences between the groups and to provide more accurate estimates of the relationships between the variables.
+
+## Intercept meta-analytical model
+
+In a meta-analysis, an intercept model is a statistical model that is used to estimate the overall effect size of a treatment or intervention. The intercept represents the expected value of the outcome variable when all predictor variables are set to zero. In other words, it represents the baseline or control group in the study. The intercept is often used to compare the effect of the treatment or intervention to the control group, and it is typically estimated using a weighted average of the effect sizes from individual studies included in the meta-analysis. The intercept model can be used to assess the overall effectiveness of an intervention and to identify factors that may influence the magnitude of the treatment effect.
+
+```{r, eval=FALSE}
+ma_model <- rma.mv(yi = lnRR,
+             V = VCV_lnRR, 
+             random = list(~1|study_ID,
+                           ~1|pfas_ID,
+                           ~1|es_ID
+              ),
+             test = "t",
+             data = dat)
+
+save(ma_model, file = here("Rdata", "ma_model.RData"))
+```
+
+```{r}
+load(here("RData", "ma_model.RData"))
+summary(ma_model)
+i2_ml(ma_model)
+orchard_plot(ma_model,
+             mod = "1",
+             group = "study_ID", 
+             data = dat, 
+             xlab = "lnRR",
+             alpha = 0.4,
+             trunk.size=9,
+             branch.size = 2) +  
+           scale_colour_manual(values = "darkorange")+ # change colours
+           scale_fill_manual(values="darkorange")+ 
+           scale_size_continuous(range = c(1, 7))+ # change point scaling
+           theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 18), # change font sizes
+                 legend.title = element_text(size = 15),
+                 legend.text = element_text(size = 13))
+```
+
+### Percentage of heterogeneity
 Use i2_ml function to obtain the total I^2.
 The I^2 statistic (J. P. Higgins and Thompson 2002) quantifies between-study heterogeneity. It is defined as the percentage of variability in the effect sizes that is not caused by sampling error.
 I^2 draws on the assumption that Q follows a χ^2 distribution with K−1 degrees of freedom under the null hypothesis of no heterogeneity.
@@ -801,9 +881,9 @@ It is calculated as the percentage of total variation in effect sizes that is du
 More info here: https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/heterogeneity.html
 
 ```{r}
-I2 <- orchaRd::i2_ml(ma_model1)
+I2 <- orchaRd::i2_ml(ma_model)
 
-orchaRd::orchard_plot(ma_model1,
+orchaRd::orchard_plot(ma_model,
                       mod="1",
                       group = "study_ID",
                       data = dat,
@@ -819,121 +899,9 @@ orchaRd::orchard_plot(ma_model1,
   scale_colour_manual(values="grey")
 ```
 
-A value of I^2 = 99 means that 99% of the total variation in effect sizes is due to between-study heterogeneity, indicating a high level of inconsistency or heterogeneity among the studies included in the analysis. This may suggest that the studies are not comparable, or that there are important differences in the methods, populations, or outcomes that are not accounted for in the analysis. In such cases, it may be difficult to draw reliable conclusions from the meta-analysis.
+I^2 = 99.001. It means that 99% of the total variation in effect sizes is due to between-study heterogeneity, indicating a high level of heterogeneity among the studies included in the analysis. 
 
-
-We can now draw a comparable caterpillar plot by using the function caterpillars. This caterpillar plot does not tell us anything new that the orchard plot didn't. But it can be compared to the orchard plot.
-
-```{r,eval=FALSE}
-orchaRd::caterpillars(model1, group = "study_ID",data = dat, xlab = "lnRR") 
-```
-
-Meta-analytic model filtering out albumen:
-
-```{r, eval=FALSE}
-ma_model1_noalbu <- rma.mv(yi = lnRR,
-             V = VCV_lnRR_noalbumen,
-             random = list(~1|es_ID,
-                           ~1|study_ID),
-             test = "t",
-             data = dplyr::filter(dat, sample_type_P != "albumen" ))
-
-save(ma_model1_noalbu, file = here("Rdata", "ma_model1_noalbu.RData"))
-```
-
-```{r}
-load(here("RData", "ma_model1_noalbu.RData"))
-summary(ma_model1_noalbu)
-i2_ml(ma_model1_noalbu)
-orchard_plot(ma_model1_noalbu,
-             group = "study_ID", 
-             data = dplyr::filter(dat, sample_type_P != "albumen" ), 
-             xlab = "lnRR")
-```
-
-```{r, eval=FALSE}
-I2_noalbu <- orchaRd::i2_ml(ma_model1_noalbu)
-
-orchaRd::orchard_plot(ma_model1_noalbu,
-                      mod="1",
-                      group = "study_ID",
-                      data = dplyr::filter(dat, sample_type_P != "albumen" ),
-                      xlab = "lnRR") + 
-  annotate(geom="text",
-           x= 0.80,
-           y= 1, 
-           label= paste0("italic(I)^{2} == ", round(I2_noalbu[1],4)),
-              color="black", parse = TRUE, size = 5) +
-  scale_fill_manual(values="grey") +
-  scale_colour_manual(values="grey")
-```
-
-The value of I^2 is still very high (i.e., 97%).
-
-## Determine the random effect structure
-
-Test the random effects of five variables: study's identity, Phylogenetic correlation between species, identity of the species, type of PFAS, and effect size identity.
-
-```{r, eval=FALSE}
-ma_model2 <- rma.mv(lnRR, VCV_lnRR,
-              random = list(~1|study_ID,
-                            ~1|Phylogeny,
-                            ~1|species_ID, 
-                            ~1|pfas_ID, 
-                            ~1|es_ID
-              ),
-              R = list(Phylogeny = cor_tree),
-              test = "t",
-              data = dat,
-              sparse = TRUE) # Make the model run faster
-
-save(ma_model2, file = here("Rdata", "ma_model2.RData"))
-```
-
-```{r}
-load(here("RData", "ma_model2.RData"))
-summary(ma_model2)
-i2_ml(ma_model2)
-```
-
-Phylogeny does not explain for any variance! (sigma squared = 0.0000)
-
-Thus, we remove it from the model.
-
-The effects of the other grouping variables are assumed to be random and are accounted for in the analysis. This allows the model to account for any differences between the groups and to provide more accurate estimates of the relationships between the variables.
-
-Now, Determine the random effect structure filtering out albumen
-
-```{r, eval=FALSE}
-ma_model2_noalbu <- rma.mv(lnRR,
-                        VCV_lnRR_noalbumen, # Add `VCV_lnRR` to account for correlated errors between cohorts (shared_controls)
-                        random = list(~1|study_ID,
-                                      ~1|Phylogeny, 
-                                      ~1|species_ID, 
-                                      ~1|pfas_ID,
-                                      ~1|es_ID
-                                      ),
-                        R = list(Phylogeny = cor_tree), # Assign the 'Phylogeny' argument to the phylogenetic variance-covariance matrix
-                        test = "t",
-                        data = dplyr::filter(dat, sample_type_P != "albumen" ),
-                        sparse = TRUE)
-
-save(ma_model2_noalbu, file = here("Rdata", "ma_model2_noalbu.RData"))
-```
-
-```{r}
-load(here("RData", "ma_model2_noalbu.RData"))
-summary(ma_model2_noalbu)
-i2_ml(ma_model2_noalbu)
-orchard_plot(ma_model2_noalbu, 
-             group = "study_ID", 
-             data = dplyr::filter(dat, sample_type_P != "albumen" ),
-             xlab = "lnRR")
-```
-
-Phylogeny does not explain for any variance in this case as well!
-
-## Meta-regression models
+# Single-moderator meta-regressions
 
 Now that the effects of the grouping variables are modeled as random effects, we include in the model additional variables (moderators/predictors) to explain heterogeneity among effect sizes (i.e., meta-regression). Moderators are tested for their overall effect on the maternal PFAS transfer. The moderators I am going to include in the model are:
 
@@ -946,86 +914,136 @@ Now that the effects of the grouping variables are modeled as random effects, we
 -   ...
 -   ...
 
-### Tissue - progeny
+## Function to run all models with the same structure
 
-Does "sample_type_P" impact our results on the overall mean and variance?
+```{r}
+run_model <- function(data, formula){
+  data <- as.data.frame(data) # convert data set into a data frame to calculate VCV matrix 
+  VCV <- impute_covariance_matrix(data$var_lnRR,
+                                     cluster = data$measurement_ID_A, 
+                                     r = 0.5) # create VCV matrix for the specified data
+  rma.mv(lnRR, VCV, # run the model, as described earlier
+         mods = formula,
+         random = list(~1|study_ID,
+                       ~1|pfas_ID,
+                       ~1|es_ID),
+         test = "t",
+         data = data,
+         sparse = TRUE)
+}
+```
+
+## Functions to run plots with the same structure
+
+```{r}
+plot_continuous <- function(data, 
+                            model,
+                            moderator,
+                            xlab){
+
+pred <- predict.rma(model)
+
+data %>% mutate(fit=pred$pred, 
+               ci.lb=pred$ci.lb,
+               ci.ub=pred$ci.ub,
+               pr.lb=pred$cr.lb,
+               pr.ub=pred$cr.ub) %>% # Add confidence intervals, mean predictions and prediction intervals
+ggplot(aes(x = moderator, 
+           y = lnRR)) +
+     geom_ribbon(aes(ymin = pr.lb, 
+                     ymax = pr.ub, 
+                     color = NULL), 
+                 alpha = .075) + # Shaded area for prediction intervals
+     geom_ribbon(aes(ymin = ci.lb,
+                     ymax = ci.ub,
+                     color = NULL), 
+                 alpha = .2) + # Shaded area for confidence intervals
+     geom_point(aes(size=(1/sqrt(var_lnRR)), 
+                    fill=Cooking_Category),
+                shape=21,
+                alpha=0.8) + # Points scaled by precision
+     scale_fill_manual(values=c("#55C667FF",
+                                           "goldenrod2",
+                                           "dodgerblue3"))+
+     geom_line(aes(y = fit), 
+               size = 1.5)+  # Regression line
+  labs(x = xlab, y = "lnRR", 
+       size = "Precison (1/SE)") +
+  theme_bw() +
+  scale_size_continuous(range=c(1,9))+ # Point scaling
+  geom_hline(yintercept = 0,
+             linetype = 2,
+             colour = "black",
+             alpha=0.5)+   # horizontal line at lnRR = 0
+  theme(text = element_text(size = 18,
+                            colour = "black",
+                            hjust = 0.5), # change font sizes and legend position
+          legend.text=element_text(size=14),
+          legend.position=c(0,0), 
+          legend.justification = c(0,0),
+          legend.background = element_blank(), 
+          legend.direction="horizontal",
+          legend.title = element_text(size=15), 
+          panel.border=element_rect(colour="black", fill=NA, size=1.2))
+}
+```
+
+## Single-moderator models
+
+Note: All continuous variables were z-transformed.
+
+### Sample type progeny
 
 ```{r, eval=FALSE}
-mr_model1 <- rma.mv(lnRR, VCV_lnRR,
-              mod = ~ sample_type_P,# + sample_type_A,
-              random = list(~1|study_ID,
-                            ~1|species_ID,
-                            ~1|pfas_ID,
-                            ~1|es_ID
-                            ),
-              test = "t",
-              data = dat,
-              sparse = TRUE)
-save(mr_model1, file = here("Rdata", "mr_model1.RData"))
+sample_type_p_model <- run_model(dat, ~sample_type_P)
+
+save(sample_type_p_model, file = here("Rdata", "sample_type_p_model.RData"))
 ```
 
 ```{r}
-load(here("RData", "mr_model1.RData"))
-summary(mr_model1)
-i2_ml(mr_model1)
-orchard_plot(mr_model1,
+load(here("RData", "sample_type_p_model.RData"))
+summary(sample_type_p_model)
+i2_ml(sample_type_p_model)
+orchard_plot(sample_type_p_model,
              mod = "sample_type_P",
              group = "study_ID", 
              data = dat,
              xlab = "lnRR")
 ```
 
-### Tissue - adult
-
-Does "sample_type_A" impact our results on the overall mean and variance?
+### Sample type adult
 
 ```{r, eval=FALSE}
-mr_model2 <- rma.mv(lnRR, VCV_lnRR,
-              mod = ~ sample_type_A,
-              random = list(~1|study_ID, 
-                            ~1|species_ID,
-                            ~1|pfas_ID, 
-                            ~1|es_ID 
-              ),
-              test = "t",
-              data = dat,
-              sparse = TRUE)
-save(mr_model2, file = here("Rdata", "mr_model2.RData"))
+sample_type_a_model <- run_model(dat, ~sample_type_A)
+
+save(sample_type_a_model, file = here("Rdata", "sample_type_a_model.RData"))
 ```
 
-```{r}
-load(here("RData", "mr_model2.RData"))
-summary(mr_model2)
-i2_ml(mr_model2)
-orchard_plot(mr_model2, 
-             mod = "sample_type_A", 
+```{r, eval=FALSE}
+load(here("RData", "sample_type_a_model.RData"))
+summary(sample_type_a_model)
+i2_ml(sample_type_a_model)
+orchard_plot(sample_type_a_model,
+             mod = "sample_type_A",
              group = "study_ID", 
-             data = dat, 
+             data = dat,
              xlab = "lnRR")
 ```
 
 ### PFAS carbon chain length
 
 ```{r, eval=FALSE}
-mr_model3 <- rma.mv(lnRR, VCV_lnRR,
-              mod = ~ carbon_chain_length,
-              random = list(~1|study_ID, 
-                            ~1|species_ID,
-                            ~1|pfas_ID, 
-                            ~1|es_ID 
-              ),
-              test = "t",
-              data = dat,
-              sparse = TRUE)
 
-save(mr_model3, file = here("Rdata", "mr_model3.RData"))
+ccl_model <- run_model(dat, ~carbon_chain_length)
+
+save(ccl_model, file = here("Rdata", "ccl_model.RData"))
 ```
 
 ```{r}
-load(here("RData", "mr_model3.RData"))
-summary(mr_model3)
-i2_ml(mr_model3)
-bubble_plot(mr_model3,
+load(here("RData", "ccl_model.RData"))
+summary(ccl_model)
+i2_ml(ccl_model)
+bubble_plot(ccl_model,
             mod = "carbon_chain_length",
             group = "study_ID", 
             data =dat, 
@@ -1035,110 +1053,80 @@ bubble_plot(mr_model3,
 Filtering out albumen
 
 ```{r, eval = FALSE}
-mr_model3_noalbumen <- rma.mv(lnRR, 
-                              VCV_lnRR_noalbumen,
-                              mod = ~ carbon_chain_length,
-                              random = list(~1|study_ID,
-                                            ~1|species_ID,
-                                            ~1|pfas_ID,
-                                            ~1|es_ID
-                                            ),
-                              test = "t",
-                              data = dplyr::filter(dat, sample_type_P != "albumen"),
-                              sparse = TRUE)
-save(mr_model3_noalbumen, file = here("Rdata", "mr_model3_noalbumen.RData"))
+dat_no_alb <- 
+  dat %>% 
+  dplyr::filter(sample_type_P != "albumen")
+
+ccl_model_no_alb <- run_model(dat_no_alb, ~ carbon_chain_length)
+
+save(ccl_model_no_alb, file = here("Rdata", "ccl_model_no_alb.RData"))
 ```
 
 ```{r}
-load(here("RData", "mr_model3_noalbumen.RData"))
-summary(mr_model3_noalbumen)
-i2_ml(mr_model3_noalbumen)
-bubble_plot(mr_model3_noalbumen, 
+load(here("RData", "ccl_model_no_alb.RData"))
+summary(ccl_model_no_alb)
+i2_ml(ccl_model_no_alb)
+bubble_plot(ccl_model_no_alb, 
             mod = "carbon_chain_length",
             group = "study_ID", 
-            data =dplyr::filter(dat, sample_type_P != "albumen") ,
+            data = dat_no_alb,
             xlab = "carbon_chain_length")
 ```
 
 ### PFAS molecular weight
 
 ```{r, eval=FALSE}
-mr_model4 <- rma.mv(lnRR, VCV_lnRR,
-              mod = ~ molecular_weight,
-              random = list(~1|study_ID, 
-                            ~1|species_ID,
-                            ~1|pfas_ID, 
-                            ~1|es_ID 
-              ),
-              test = "t",
-              data = dat,
-              sparse = TRUE)
-save(mr_model4, file = here("Rdata", "mr_model4.RData"))
+mw_model <- run_model(dat, ~molecular_weight)
+
+save(mw_model, file = here("Rdata", "mw_model.RData"))
 ```
 
-```{r, eval=FALSE}
-load(here("RData", "mr_model4.RData"))
-summary(mr_model4)
-i2_ml(mr_model4)
-bubble_plot(mr_model4, 
+```{r}
+load(here("RData", "mw_model.RData"))
+summary(mw_model)
+i2_ml(mw_model)
+bubble_plot(mw_model, 
             mod = "molecular_weight", 
             group = "study_ID",
             data =dat,
             xlab = "molecular_weight")
 
 # Pearson's correlation
-cor.test(dat$carbon_chain_length, dat$molecular_weight) #extremely high correlated (cor=0.9515476)
+cor.test(dat$carbon_chain_length, dat$molecular_weight) #extremely highly correlated (cor=0.9515476)
 ```
 
 Filtering out albumen
 
 ```{r, eval = FALSE}
-mr_model4_noalbumen <- rma.mv(lnRR, 
-                              VCV_lnRR_noalbumen,
-                              mod = ~ molecular_weight,
-                              random = list(~1|study_ID,
-                                            ~1|species_ID,
-                                            ~1|pfas_ID,
-                                            ~1|es_ID
-                                            ),
-                              test = "t",
-                              data = dplyr::filter(dat, sample_type_P != "albumen"),
-                              sparse = TRUE)
-save(mr_model4_noalbumen, file = here("Rdata", "mr_model4_noalbumen.RData"))
+mw_model_no_alb <- run_model(dat_no_alb, ~ molecular_weight)
+
+save(mw_model_no_alb, file = here("Rdata", "mw_model_no_alb.RData"))
 ```
 
 ```{r}
-load(here("RData", "mr_model4_noalbumen.RData"))
-summary(mr_model4_noalbumen)
-i2_ml(mr_model4_noalbumen)
-bubble_plot(mr_model4_noalbumen,
+load(here("RData", "mw_model_no_alb.RData"))
+summary(mw_model_no_alb)
+i2_ml(mw_model_no_alb)
+bubble_plot(mw_model_no_alb,
             mod = "molecular_weight", 
             group = "study_ID", 
-            data =dplyr::filter(dat, sample_type_P != "albumen"),
+            data = dat_no_alb,
             xlab = "molecular_weight")
 ```
 
 ### Functional group
 
 ```{r, eval=FALSE}
-mr_model6 <- rma.mv(lnRR, VCV_lnRR,
-              mod = ~ functional_group - 1,
-              random = list(~1|study_ID, 
-                            ~1|species_ID,
-                            ~1|pfas_ID, 
-                            ~1|es_ID 
-              ),
-              test = "t",
-              data = dat,
-              sparse = TRUE)
-save(mr_model6, file = here("Rdata", "mr_model6.RData"))
+fun_gro_model <- run_model(dat, ~ functional_group - 1)
+
+save(fun_gro_model, file = here("Rdata", "fun_gro_model.RData"))
 ```
 
 ```{r}
-load(here("RData", "mr_model6.RData"))
-summary(mr_model6)
-i2_ml(mr_model6)
-orchard_plot(mr_model6,
+load(here("RData", "fun_gro_model.RData"))
+summary(fun_gro_model)
+i2_ml(fun_gro_model)
+orchard_plot(fun_gro_model,
              mod = "functional_group",
              group = "study_ID",
              data =dat, 
@@ -1148,96 +1136,73 @@ orchard_plot(mr_model6,
 
 ## Mulit-moderator models
 
-### some testing
+### Albumen * Carbon chain length
 
 ```{r}
-
 dat$albumen <- ifelse(dat$sample_type_P == "albumen", "albumen", "others")
+```
 
-mr_modelX <- rma.mv(lnRR, VCV_lnRR,
-              mod = ~ albumen*carbon_chain_length,
-              random = list(~1|study_ID,
-                            ~1|species_ID,
-                            ~1|pfas_ID,
-                            ~1|es_ID 
-              ),
-              test = "t",
-              data = dat,
-              sparse = TRUE)
+```{r, eval = FALSE}
+mmr_model1 <- run_model(dat, ~ albumen * scale(carbon_chain_length))
 
-summary(mr_modelX)
+save(mmr_model1, file = here("Rdata", "mmr_model1.RData"))
+```
 
-orchard_plot(mr_modelX,
+```{r}
+load(here("RData", "mmr_model1.RData"))
+summary(mmr_model1)
+
+orchard_plot(mmr_model1,
              mod = "albumen",
              group = "study_ID",
-             data =dat, 
-             xlab = "lnRR", 
-             #xlab = "Carbon chain length",
+             data = dat, 
+             xlab = "lnRR",
              at = list(carbon_chain_length = c(6, 12, 16)),
              by = "carbon_chain_length" )
 
-bubble_plot(mr_modelX,
+bubble_plot(mmr_model1,
              mod = "carbon_chain_length",
              group = "study_ID",
              data =dat, 
              ylab = "lnRR", 
              xlab = "Carbon chain length",
-             by = "albumen" ,
+             by = "albumen",
             g = TRUE)
-
-mr_modelX1 <- rma.mv(lnRR, VCV_lnRR,
-              mod = ~ functional_group - 1 + scale(carbon_chain_length),
-              random = list(~1|study_ID, 
-                            ~1|species_ID,
-                            ~1|pfas_ID, 
-                            ~1|es_ID 
-              ),
-              test = "t",
-              data = dat,
-              sparse = TRUE)
-
-summary(mr_modelX1)
-
-orchard_plot(mr_modelX1,
-             mod = "functional_group",
-             group = "study_ID",
-             data =dat, 
-             xlab = "lnRR", 
-             #xlab = "Carbon chain length",
-             at = list(carbon_chain_length = c(6, 12, 16)),
-             by = "carbon_chain_length" )
-
 ```
 
-
-
-
-Filtering out albumen
-
+### Functional group + Carbon chain length
 ```{r, eval=FALSE}
-mr_model6_noalbumen <- rma.mv(lnRR, VCV_lnRR_noalbumen,
-              mod = ~ functional_group,
-              random = list(~1|study_ID, 
-                            ~1|species_ID,
-                            ~1|pfas_ID, 
-                            ~1|es_ID 
-              ),
-              test = "t",
-              data = dplyr::filter(dat, sample_type_P != "albumen"),
-              sparse = TRUE)
-save(mr_model6_noalbumen, file = here("Rdata", "mr_model6_noalbumen.RData"))
+mmr_model2 <- run_model(dat, ~ functional_group - 1 + scale(carbon_chain_length))
+
+save(mmr_model2, file = here("Rdata", "mmr_model2.RData"))
 ```
 
 ```{r}
-load(here("RData", "mr_model6_noalbumen.RData"))
-summary(mr_model6_noalbumen)
-i2_ml(mr_model6_noalbumen)
-orchard_plot(mr_model6_noalbumen,
+load(here("RData", "mmr_model2.RData"))
+summary(mmr_model2)
+
+orchard_plot(mmr_model2,
              mod = "functional_group",
-             group = "study_ID", 
-             data =dplyr::filter(dat, sample_type_P != "albumen"),
-             xlab = "lnRR")
+             group = "study_ID",
+             data = dat,
+             xlab = "Carbon chain length",
+             at = list(carbon_chain_length = c(6, 12, 16)),
+             by = "carbon_chain_length" )
 ```
+
+# Full models
+
+```{r}
+
+```
+
+
+# Funnel plot
+
+```{r}
+
+```
+
 
 # Publication bias
 
@@ -1272,37 +1237,42 @@ orchaRd::bubble_plot(pb_bubble,
                      legend.pos = "top.left")
 ```
 
+
+
 # Sensitivity analysis - Models
 
 -   Run a sensitivity analysis with and without the effect sizes that fail Geary's test.
-
-# Tries
-
-Here I have random stuff I am testing atm
-
-Check extreme lnRR values
-
 ```{r}
-extreme_values <- 
-  dat %>%
-  dplyr::filter(lnRR < -4 | lnRR > 4)
-colnames(extreme_values)
-extreme_values <- 
-  extreme_values[, c(57, 58, 1 : 56)]
-view(extreme_values)
-extreme_values <-
-  extreme_values %>%
-  dplyr::select(-c(mean_A, mean_P, sd_A, sd_P, n_A, n_P))
+
 ```
 
-```{r}
-ggplot(data=dplyr::filter(dat, life_stage_P == "egg"),
-       aes(x=sample_type_P, y=lnRR, color = sample_type_A)) +
-  geom_point(size = 5) +
-  theme_minimal()
+- Run a sensitivity analysis without pooled data (male+female) and adulta and progeny from different nests (i.e., dat2)
+
+Meta-analytic model
+
+```{r, eval=FALSE}
+ma_model1_dat2 <- rma.mv(yi = lnRR,
+             V = VCV_lnRR_dat2 , 
+             random = list(~1|study_ID, 
+                            ~1|Phylogeny, 
+                            ~1|species_ID, 
+                            ~1|pfas_ID,
+                            ~1|es_ID
+                           ),
+             R = list(Phylogeny = cor_tree),
+             test = "t",
+             data = dat2)
+
+save(ma_model1_dat2, file = here("Rdata", "ma_model1_dat2.RData"))
 ```
 
-```{r}
-boxplot( lnRR ~ sample_type_P, data = dplyr::filter(dat, life_stage_P == "egg"),
-        col = c("green","yellow","purple"))
+```{r, eval=FALSE}
+load(here("RData", "ma_model1_dat2.RData"))
+summary(ma_model1_dat2)
+i2_ml(ma_model1_dat2)
+orchard_plot(ma_model1_dat2,
+             group = "study_ID", 
+             data = dat2, 
+             xlab = "lnRR")
 ```
+
