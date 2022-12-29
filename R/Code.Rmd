@@ -431,12 +431,12 @@ $$
 \ln{\text{RR}} = \ln \left( \frac{m_{T}} {m_{C}}\right) + 
 \frac{1}{2} \left(\frac{\text{CV}_T^2} {n_{T}} - \frac{\text{CV}_C^2} {n_{C}}\right)
 $$
+
 $$
 v(\ln{\text{RR}}) = \frac{\text{CV}_T^2} {n_{T}} + \frac{\text{CV}_C^2} {n_{C}} - 2r_{TC}\frac{\text{CV}_T \text{CV}_C}{\sqrt{n_Cn_T}}
 $$ $n_{T} = n_{C} = n$
 
-where mT and mC are the sample means for the treatment (progeny) and control (adults) groups, respectively, nT and nC are
-the sample sizes for the two groups and CV is the coefficient of variation; that is, CVC = sdT /mT and CVC = sdC/mC, with sd being the (sample) standard deviation.
+where mT and mC are the sample means for the treatment (progeny) and control (adults) groups, respectively, nT and nC are the sample sizes for the two groups and CV is the coefficient of variation; that is, CVC = sdT /mT and CVC = sdC/mC, with sd being the (sample) standard deviation.
 
 For obvious reasons, all our included studies used independent 2-group design. Thus, we set rTC = 0.
 
@@ -444,11 +444,8 @@ $$
 v(\ln{\text{RR}}) = \frac{\text{CV}_T^2} {n_{T}} + \frac{\text{CV}_C^2} {n_{C}}
 $$
 
-Spake and Doncaster (2017) showed that sampling variance esti-
-mates that include sample standard deviation are
-likely to be downwardly biased when sample sizes (n) are small (n < 50).
-Our sample sizes (n) per effect size were between 1 and 38, with the
-average of 24.3. *these values are PROBABLY WRONG* - Should I use N_tilde (min, max, mean)?
+Spake and Doncaster (2017) showed that sampling variance estimates that include sample standard deviation are likely to be downwardly biased when sample sizes (n) are small (n < 50).
+Our sample sizes (n) per effect size were between 1 and 38, with the average of 24.3. *these values are PROBABLY WRONG* - Should I use N_tilde (min, max, mean)?
 The use of the averaged CV was shown to reduce the bias identified by Doncaster and Spake (2017).
 
 Accordingly, we used:
@@ -546,6 +543,19 @@ plot(tree)
 We follow the methods proposed by Nakagawa et al., 2022 ([A robust and readily implementable method for the meta-analysis of response ratios with and without missing standard deviations](https://ecoevorxiv.org/repository/view/3753/) to calculate the averaged coefficient of variation across studies.
 
 We will first calculate the between study CV using the `cvg_avg` function. Here, we need to do this for the adults and progeny groups as follows, such that variable b_CV_1 and b_CV_2 are the averages for the adults and progeny groups, respectively. Then, we calculate the average between study CV, which will replace missing values.
+
+```{r}
+#How many missing sd values?
+count(nt2, sd_A == "NA")
+#   sd_A == "NA"   n
+# 1        FALSE 317
+# 2           NA  54
+count(nt2, sd_P == "NA")
+#   sd_P == "NA"   n
+# 1        FALSE 290
+# 2           NA  81
+```
+
 
 ```{r}
 cv_avg <- function(x, 
@@ -1144,6 +1154,19 @@ orchard_plot(fun_gro_model,
              data =dat, 
              xlab = "lnRR",
              angle = 45)
+#TODO
+
+test1 <- run_model(dat, ~ functional_group)
+summary(test1)
+
+test2 <- run_model(dat, ~ relevel(factor(functional_group), ref = "mixed"))
+summary(test2)
+
+
+library(multicomp)
+
+contrasts <- glht(test1)
+
 ```
 
 ### Feeding ecology (main food type)
@@ -1188,6 +1211,8 @@ dat$albumen <- ifelse(dat$sample_type_P == "albumen", "albumen", "others")
 ```
 
 ```{r, eval = FALSE}
+
+#dat$z_carbon_chain_length <- scale(dat$carbon_chain_length)
 mmr_model1 <- run_model(dat, ~ albumen * scale(carbon_chain_length))
 
 save(mmr_model1, file = here("Rdata", "mmr_model1.RData"))
@@ -1275,6 +1300,12 @@ orchard_plot(mmr_lay_ccl,
              xlab = "lnRR",
              at = list(carbon_chain_length = c(6, 12, 16)),
              by = "carbon_chain_length" )
+
+# TODO
+test4 <- run_model(dat, ~ laying_order*scale(carbon_chain_length) )
+
+summary(test4)
+
 ```
 
 ### Sample types
