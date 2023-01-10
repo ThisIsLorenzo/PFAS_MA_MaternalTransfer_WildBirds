@@ -1,0 +1,64 @@
+---
+title: "Model Selection using the glmulti and MuMIn Packages"
+author: "https://www.metafor-project.org/doku.php/tips:model_selection_with_glmulti_and_mumin"
+date: "2023-01-09"
+output: html_document
+---
+# Model Selection using the glmulti and MuMIn Packages
+Refer to the following link: https://www.metafor-project.org/doku.php/tips:model_selection_with_glmulti_and_mumin
+
+## Data Preparation
+For the example, I will use data from the meta-analysis by Bangert-Drowns et al. (2004) on the effectiveness of school-based writing-to-learn interventions on academic achievement (help(dat.bangertdrowns2004) provides a bit more background on this dataset). The data can be loaded with:
+```{r}
+library(metafor)
+dat <- dat.bangertdrowns2004
+```
+(I copy the dataset into dat, which is a bit shorter and therefore easier to type further below). We can look at the first 10 and the last 10 rows of the dataset with:
+```{r}
+rbind(head(dat, 10), 
+      tail(dat, 10))
+```
+Variable yi contains the effect size estimates (standardized mean differences) and vi the corresponding sampling variances. There are 48 rows of data in this dataset.
+
+For illustration purposes, the following variables will be examined as potential moderators of the treatment effect (i.e., the size of the treatment effect may vary in a systematic way as a function of one or more of these variables):
+
+length: treatment length (in weeks)
+wic: writing tasks were completed in class (0 = no; 1 = yes)
+feedback: feedback on writing was provided (0 = no; 1 = yes)
+info: writing contained informational components (0 = no; 1 = yes)
+pers: writing contained personal components (0 = no; 1 = yes)
+imag: writing contained imaginative components (0 = no; 1 = yes)
+meta: prompts for metacognitive reflection were given (0 = no; 1 = yes)
+
+More details about the meaning of these variables can be found in Bangert-Drowns et al. (2004). For the purposes of this illustration, it is sufficient to understand that we have 7 variables that are potentially (and a priori plausible) predictors of the size of the treatment effect. \
+As we will fit various models to these data (containing all possible subsets of these 7 variables), and we need to keep the data being included in the various models the same across models, we will remove rows where at least one of the values of these 7 moderator variables is missing. We can do this with:
+```{r}
+dat <- dat[!apply(dat[,c("length",
+                         "wic",
+                         "feedback", 
+                         "info",
+                         "pers", 
+                         "imag", 
+                         "meta")], 1, anyNA),]
+```
+The dataset now includes 41 rows of data (nrow(dat)), so we have lost 7 data points for the analyses. One could consider methods for imputation to avoid this problem, but this would be the topic for another day. So, for now, we will proceed with the analysis of the 41 estimates.
+
+## Model selection
+We will now examine the fit and plausibility of various models, focusing on models that contain none, one, and up to seven (i.e., all) of these moderator variables. For this, we install and load the glmulti package and define a function that (a) takes a model formula and dataset as input and (b) then fits a mixed-effects meta-regression model to the given data using maximum likelihood estimation:
+```{r}
+install.packages("glmulti")
+library(rJava)
+library(glmulti)
+ 
+rma.glmulti <- function(formula, data, ...)
+   rma(formula, vi, data=data, method="ML", ...)
+```
+It is important to use ML (instead of REML) estimation, since log-likelihoods (and hence information criteria) are not directly comparable for models with different fixed effects (although see Gurka, 2006, for a different perspective on this).
+
+
+
+
+
+
+
+
