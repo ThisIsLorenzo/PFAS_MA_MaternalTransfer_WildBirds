@@ -514,7 +514,7 @@ Import phylogenetic information and calculate phylogenetic variance-covariance m
 
 NOTE: The phylogenetic tree was generated in the `tree_MA_MT_PFAS.Rmd` document
 
-```{r, fig.height=10, fig.width = 8}
+```{r}
 tree <- read.tree(here("R", "phylogenetic_tree.tre")) # Import phylogenetic tree (see tree_MA_MT_PFAS.Rmd for more details) 
 tree <- compute.brlen(tree) # Generate branch lengths 
 cor_tree <- vcv(tree,corr = T) # Generate phylogenetic variance-covariance matrix 
@@ -532,6 +532,9 @@ levels(nt2$Phylogeny)[levels(nt2$Phylogeny) == "Diomedea_immutabilis"] <- "Phoeb
 # checking all species are in the data
 match(unique(nt2$Phylogeny), colnames(cor_tree))
 match(nt2$Phylogeny, colnames(cor_tree))
+```
+
+```{r, eval=FALSE, fig.height=10, fig.width = 8}
 # plotting tree
 plot(tree)
 ```
@@ -1355,6 +1358,20 @@ full_model0 <- rma.mv(yi = lnRR,
 summary(full_model0)
 ```
 
+# Model selection
+
+From: https://itchyshin.github.io/Meta-analysis_tutorial/
+
+```{r}
+#TODO
+install.packages("MuMIn")
+library(MuMIn)
+
+eval(metafor:::.MuMIn) # use eval() function to extract helper functions from MuMIn and make them usable in metafor.
+mod.candidate <- dredge(full_model0, beta = "none", evaluate = TRUE, rank = "AICc", trace=2) # dredge to produce all possible models
+```
+
+
 
 # Conditional analyses
 
@@ -1404,12 +1421,12 @@ orchaRd::bubble_plot(pb_bubble,
 
 ```
 
-- Run a sensitivity analysis without pooled data (male+female) and adulta and progeny from different nests (i.e., dat2)
+- Run a sensitivity analysis without pooled data (male+female) and adult and progeny from different nests (i.e., dat2)
 
 Meta-analytic model
 
 ```{r, eval=FALSE}
-ma_model1_dat2 <- rma.mv(yi = lnRR,
+dat2_model <- rma.mv(yi = lnRR,
              V = VCV_lnRR_dat2 , 
              random = list(~1|study_ID, 
                             ~1|Phylogeny, 
@@ -1421,14 +1438,14 @@ ma_model1_dat2 <- rma.mv(yi = lnRR,
              test = "t",
              data = dat2)
 
-save(ma_model1_dat2, file = here("Rdata", "ma_model1_dat2.RData"))
+save(dat2_model, file = here("Rdata", "dat2_model.RData"))
 ```
 
 ```{r, eval=FALSE}
-load(here("RData", "ma_model1_dat2.RData"))
-summary(ma_model1_dat2)
-i2_ml(ma_model1_dat2)
-orchard_plot(ma_model1_dat2,
+load(here("RData", "dat2_model.RData"))
+summary(dat2_model)
+i2_ml(dat2_model)
+orchard_plot(dat2_model,
              group = "study_ID", 
              data = dat2, 
              xlab = "lnRR")
