@@ -106,7 +106,8 @@ pacman::p_load(tidyverse,
                kableExtra,
                phytools,
                patchwork,
-               clubSandwich)
+               clubSandwich,
+               MuMIn)
 ```
 
 loading the six data tables
@@ -541,6 +542,10 @@ plot(tree)
 
 # Effect sizes calculation
 
+A meta-analysis combines the results of multiple studies to estimate the overall effect size, which represents the magnitude of a difference or the strength of a relationship. The effect size is the response variable in a meta-analytic model and can be measured using different metrics.
+The choice of metric is based on the research question being addressed.
+We use the log response ratio (lnRR; aka ratio of means), which is a measure of effect size that quantifies the difference in statistics between two groups.
+
 ## Averaged coefficient of variation
 
 We follow the methods proposed by Nakagawa et al., 2022 ([A robust and readily implementable method for the meta-analysis of response ratios with and without missing standard deviations](https://ecoevorxiv.org/repository/view/3753/) to calculate the averaged coefficient of variation across studies.
@@ -660,9 +665,12 @@ dat <- nt2 %>%
 dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
 ```
 
-## Variance-covariance
+## Variance-covariance matrix
 
-Now, we need to account for correlated errors (i.e. effectively dividing the weight of the correlated estimates by half) because some effect sizes share the same control(adult). For this purpose, I calculate the variance-covariance from the log response ratio variance. Variance-covariance is a measure of how two random variables are related. The variance-covariance matrix is a square matrix that shows the variances and covariances of a set of random variables. The diagonal elements of the matrix show the variances of the individual random variables, while the off-diagonal elements show the covariances between pairs of variables.
+Now, we need to account for correlated errors (i.e. effectively dividing the weight of the correlated estimates by half) because some effect sizes share the same control(adult). 
+The multilevel model we will propose (Choosing a meta-analytical model) only deals with cases of non-independence among effect sizes. For non-independence among sampling variances (νi), for example, due to shared control statistics, we can construct a variance-covariance matrix to explicitly capture the non-zero covariance that arises from correlation between sampling errors (νi) within the same primary studies.
+
+For this purpose, I calculate the variance-covariance from the log response ratio variance. Variance-covariance is a measure of how two random variables are related. The variance-covariance matrix is a square matrix that shows the variances and covariances of a set of random variables. The diagonal elements of the matrix show the variances of the individual random variables, while the off-diagonal elements show the covariances between pairs of variables.
 
 ```{r}
 
@@ -680,43 +688,6 @@ VCV_lnRR_noalbumen <- impute_covariance_matrix(dat_noalbumen$var_lnRR,
                                      r = 0.5)
 
 ```
-
-## Geary's Test - *REMOVE?*
-
-How well missing SD methods perform (and indeed whether lnRR is suitable at all) depends on whether lnRR is normally distributed. We can use a modified Geary's Test (Lajeunesse 2015) to ascertain effects that may be problematic.
-
-```{r}
-# Function to calculate Geary's "number"
-  geary <- function(mean, 
-                    sd, 
-                    n)
-    {
-    (1 / (sd / mean)) * ((4*n)^(3/2) / (1 + 4*n))
-    }
-
-# Geary's test; assumption of normality assumed to be approximately correct when values are >= 3.
-nt <- nt %>% 
-         mutate(geary_control = geary(mean_A,
-                                      sd_A,
-                                      n_A),
-                    geary_trt = geary(mean_P, 
-                                      sd_P,
-                                      n_P),
-                   geary_test = ifelse(geary_control >= 3 & geary_trt >= 3, "pass", "fail"))
-# How many fail?
-geary_res <- nt %>% 
-      group_by(geary_test) %>% 
-      summarise(n = n()) %>% 
-      data.frame()
-
-geary_res
-#   geary_test   n
-# 1       fail   6
-# 2       pass 238
-# 3       <NA> 127
-```
-
-Overall, it looks like we have 6 effects that fail the test. Lajeunesse (2015) recommend doing a sensitivity analysis with and without the effect sizes that fail the test.
 
 # Sensitivity analysis - Data
 
@@ -761,14 +732,6 @@ ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon",
                                              binwidth = 0.05) + scale_x_log10()+theme_classic()
 ```
 
-## Forest plot of effect size measurements
-*WORK IN PROGRESS*
-```{r create the forest plot, eval=FALSE}
-forest.meta(
-  dat,
-  yi = "lnRR", vi = "var_nlRR")
-```
-
 # Summary
 ## Table of sample sizes
 
@@ -808,7 +771,16 @@ kable(summary(dat), "html") %>%
                height = "500px")
 ```
 
-# Meta-analytical models
+# FIRST AIM:
+# Choosing a meta-analytic model
+
+Now that we calculated the effect sizes and sampling variances, we can use them to achieve the first goal of our meta-analysis, which is *estimating the overall effect*.
+
+One common challenge in environmental meta-analysis is dealing with non-independence among data points (i.e., effect sizes), as each study may contribute multiple effect sizes. A multilevel model is the simplest meta-analytic model for addressing this issue in environmental science research.
+Our dataset has N = 13 primary studies with k = 371 effect sizes. k/N = 28  indicating statistical dependence. This is because, on average, 18 effect sizes are contributed by each primary study. 
+Failing to deal with *statistical non-independence* will inflate the Type 1 error, leading to an underestimated standard error of β0 and a spurious p-value of β0. 
+Non-independence among effect sizes must be taken into account from the start of the analysis. To properly structure the data to account for non-independence, we need to create a unique identifier for each primary study (Study_ID: S1, S2, S3, etc.) and a unique identifier for each effect size (ES_ID: ES1, ES2, ES3, etc.). With these variables included in the data file, we can use the function rma.mv (instead of rma) to fit the *multilevel meta-analytic model*.
+
 
 ## Determine the random effect structure
 
@@ -817,11 +789,11 @@ The random effects model is used to account for between-study heterogeneity, whi
 ```{r, eval=FALSE}
 ma_all_random_effects <- rma.mv(yi = lnRR,
                                 V = VCV_lnRR, # Add `VCV_lnRR` to account for correlated errors
-             random = list(~1|study_ID, # Identity of the study
+             random = list(~1|study_ID, # Between-study effect
                            ~1|Phylogeny, # Phylogenetic correlation between species
-                           ~1|species_ID, # Identity of the species
-                           ~1|pfas_ID, # Type of PFAS
-                           ~1|es_ID # Effect size identity
+                           ~1|species_ID, # Between species effect
+                           ~1|pfas_ID, # Between type of PFAS effect
+                           ~1|es_ID # Within-study effect
               ),
              R = list(Phylogeny = cor_tree),
              test = "t",
@@ -832,6 +804,7 @@ save(ma_all_random_effects, file = here("Rdata", "ma_all_random_effects.RData"))
 
 ```{r}
 load(here("RData", "ma_all_random_effects.RData"))
+summary(ma_all_random_effects)
 orchard_plot(ma_all_random_effects,
              group = "study_ID", 
              data = dat, 
@@ -872,7 +845,6 @@ save(ma_model, file = here("Rdata", "ma_model.RData"))
 ```{r}
 load(here("RData", "ma_model.RData"))
 summary(ma_model)
-i2_ml(ma_model)
 orchard_plot(ma_model,
              mod = "1",
              group = "study_ID", 
@@ -892,7 +864,22 @@ orchard_plot(ma_model,
                  legend.text = element_text(size = 13))
 ```
 
-### Percentage of heterogeneity
+
+### Forest plot of effect size measurements
+Forest plot showing the effect sizes from each study (and their 95% CIs) and the overall effect based on model.
+```{r create the forest plot, eval=FALSE}
+forest(ma_model, # rma.mv object
+       xlab = "Effect size lnRR")
+```
+
+# SECOND AIM:
+
+The second goal of a meta-analysis is to assess the consistency (or heterogeneity) among studies.
+
+# Percentage of heterogeneity
+
+We can use I2 statistic to express variance due to differences between studies (not due to sampling variance) in the case of random-effects model.
+
 Use i2_ml function to obtain the total I^2.
 The I^2 statistic (J. P. Higgins and Thompson 2002) quantifies between-study heterogeneity. It is defined as the percentage of variability in the effect sizes that is not caused by sampling error.
 I^2 draws on the assumption that Q follows a χ^2 distribution with K−1 degrees of freedom under the null hypothesis of no heterogeneity.
@@ -901,6 +888,7 @@ More info here: https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/hete
 
 ```{r}
 I2 <- orchaRd::i2_ml(ma_model)
+i2_ml(ma_model)
 
 orchaRd::orchard_plot(ma_model,
                       mod="1",
@@ -919,6 +907,11 @@ orchaRd::orchard_plot(ma_model,
 ```
 
 I^2 = 99.001. It means that 99% of the total variation in effect sizes is due to between-study heterogeneity, indicating a high level of heterogeneity among the studies included in the analysis. 
+We see there is a small between-study heterogeneity (indicated by I2_study_ID), a small between-PFAS types heterogeneity (indicated by I2_pfas_ID) while a very large within-study heterogeneity (indicated by I2_es_ID). 
+
+# THIRD AIM
+
+The third aim of a meta-analysis is to explain the heterogeneity.
 
 # Single-moderator meta-regressions
 
@@ -1338,37 +1331,58 @@ orchard_plot(mmr_model3,
 
 
 
-# Full models
+# Full model
 
-```{r}
+```{r, eval=FALSE}
 full_model0 <- rma.mv(yi = lnRR,
-                         V = VCV_lnRR, 
-                         mods = ~1 + 
-                           functional_group +
-                           scale(carbon_chain_length) +
-                           sample_type_A +
-                           sample_type_P,
-                         random = list(~1|study_ID,
-                                       ~1|pfas_ID, 
-                                       ~1|es_ID
-                                       ),
+                      V = VCV_lnRR, 
+                      mods = ~1 + 
+                        functional_group +
+                        scale(carbon_chain_length) +
+                        sample_type_A +
+                        sample_type_P,
+                      random = list(~1|study_ID,
+                                    ~1|pfas_ID, 
+                                    ~1|es_ID
+                                    ),
                       test = "t",
                       data = dat,
                       sparse = TRUE)
+save(full_model0, file = here("Rdata", "full_model0.RData"))
+```
+
+```{r}
+load(here("RData", "full_model0.RData"))
 summary(full_model0)
 ```
 
+
 # Model selection
 
-From: https://itchyshin.github.io/Meta-analysis_tutorial/
+Rephrased From: https://itchyshin.github.io/Meta-analysis_tutorial/
+
+Model selection is a powerful method to:
+
+-  *quantify the importance of moderators* in explaining heterogeneity, which is useful when look for, for example, global drivers of environmental changes;
+
+-  *multimodel inference*, which can make model inferences about the moderators in the context of models with all possible combinations of moderators rather than a single ‘best’ model;
+
+-  *multimodel predictions*, which can predict (average) effects of a moderator and its CIs based on models with all possible combinations of moderators rather than a single ‘best’ model.
+
+We performed model selection using an information-theoretic approach with the help of the metafor package and other specialized packages such as MuMIn or glmulti. We will specifically be using the MuMIn package due to its simpler syntax. It is important to note that while using R2 for model selection is a viable option, it is not the preferred method in this case."
+
+**Important point**: when conducting a meta-analysis, it is important to carefully choose the moderators based on their prior plausibility and the predefined research questions you are trying to address. It is not recommended to include a large number of moderators or to remove them until you obtain a significant model.
+
+## Best model
+
+By ‘best model’, we mean the acceptable amount of information loss when we use a fitted model to approximate the real data generating mechanism.
+When we refer to the "best model," we are referring to the model that has the least amount of information loss when approximating the actual data generating process. To identify the best model, we first fit a multilevel multi-moderator meta-analytic model with all plausible moderators (referred to as the full model). We then use maximum likelihood (ML) to produce models with all possible combinations of moderators from the full model. This process is known as dredging.
 
 ```{r}
-#TODO
-install.packages("MuMIn")
-library(MuMIn)
-
 eval(metafor:::.MuMIn) # use eval() function to extract helper functions from MuMIn and make them usable in metafor.
 mod.candidate <- dredge(full_model0, beta = "none", evaluate = TRUE, rank = "AICc", trace=2) # dredge to produce all possible models
+# Next step, let’s select a sets of best model. This can be done by using thumb of rules, for example, delta AICc <= 2:
+subset(mod.candidate, delta <= 2, recalc.weights = FALSE)
 ```
 
 
