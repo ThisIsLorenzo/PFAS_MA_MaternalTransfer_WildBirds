@@ -730,6 +730,8 @@ ggplot(dat, aes(x=var_lnRR))+ geom_histogram(fill = "salmon",
 
 ## Table of sample sizes
 
+The following chunk creates a table of effect sizes and variables.
+
 ```{r}
 table_sample_sizes <- dat %>% 
   dplyr::summarise('studies' = n_distinct(study_ID),
@@ -755,15 +757,48 @@ colnames(table_sample_sizes) <- "n (sample size)"
 
 kable(table_sample_sizes) %>% 
   kable_styling("striped", position="left")
+
+# Save the table as an Excel file
+write.table(table_sample_sizes, file = here("RData", "table_sample_sizes.csv"), sep = ",", row.names = TRUE, col.names = TRUE)
+
+# Convert the table to a plot
+table_sample_sizes_df <- as.data.frame(table_sample_sizes)
+
+table_sample_sizes_df$variable <- rownames(table_sample_sizes_df)
+
+table_sample_sizes_df <- table_sample_sizes_df %>% 
+  dplyr::arrange(variable) %>%
+  mutate(variable = reorder(variable, `n (sample size)`))
+
+
+my_palette <- colorRampPalette(brewer.pal(8, "Dark2"))(length(table_sample_sizes_df$variable))
+
+ggplot(table_sample_sizes_df, aes(x=variable,
+                                  y=`n (sample size)`, fill=variable)) +
+  geom_col() +
+  geom_text(aes(label = `n (sample size)`),
+            position = position_stack(vjust = 0.5),
+            size = 4) +
+  coord_flip() +
+  ggtitle("Sample sizes") +
+  theme_light() +
+  scale_fill_manual(values = my_palette, , guide = guide_legend(reverse = TRUE))
+
+
+# Save the table
+#ggsave(here("RData", "table_sample_sizes.png"), width = 10, height = 7)
+
 ```
 
 ## Summary of the dataset
 
+The following chunk creates a table of summary of the dataset
+
 ```{r}
-kable(summary(dat), "html") %>% 
+table_summary_dataset <- kable(summary(dat), format = "html") %>% 
   kable_styling("striped", position = "left") %>% 
-    scroll_box(width = "100%", 
-               height = "500px")
+  scroll_box(width = "100%", height = "500px") #%>%
+  #write_file(here("RData", "table_summary_dataset.html")) # Save the table as an HTML file
 ```
 
 # FIRST AIM: to estimate the overall effect
@@ -1380,18 +1415,9 @@ The model selection table shows the results of model selection based on the AICc
 
 The model with the best AICc is the one at the top of the table, which has the lowest AICc and the highest weight:
 
-| Global model call: rma.mv(yi = lnRR, V = VCV_lnRR, mods = \~1 + functional_group +
-      scale(carbon_chain_length) + sample_type_A + sample_type_P,
-      random = list(\~1 \| study_ID, \~1 \| pfas_ID, \~1 \| es_ID), data = dat,
-      test = "t", sparse = TRUE)
-  \-\--
-  Model selection table
-     (Int) fnc_grp smp_typ_A smp_typ_P scl(crb_chn_lng) df   logLik  AICc delta weight
-  16     +       +         +         +           0.3964 19 -479.083 998.8     0  0.948
-  Models ranked by AICc(x)
+| Global model call: rma.mv(yi = lnRR, V = VCV_lnRR, mods = \~1 + functional_group + scale(carbon_chain_length) + sample_type_A + sample_type_P, random = list(\~1 \| study_ID, \~1 \| pfas_ID, \~1 \| es_ID), data = dat, test = "t", sparse = TRUE) \-\-- Model selection table (Int) fnc_grp smp_typ_A smp_typ_P scl(crb_chn_lng) df logLik AICc delta weight 16 + + + + 0.3964 19 -479.083 998.8 0 0.948 Models ranked by AICc(x)
 
-All the variables (labeled "fnc_grp", "smp_typ_A", "smp_typ_P" and "crb_chn_lng") are included as predictors in the best model according to the AICc criterion. These variables are used as predictor in the model with the aim to explain the variation in the outcome variable, lnRR.
-The column labeled "scl(crb_chn_lng)" shows the scaling factor applied to the variable "carbon_chain_length" random effects term, so it means the variable "carbon_chain_length" is included in the model and it's random effects term has been scaled by 0.3964.
+All the variables (labeled "fnc_grp", "smp_typ_A", "smp_typ_P" and "crb_chn_lng") are included as predictors in the best model according to the AICc criterion. These variables are used as predictor in the model with the aim to explain the variation in the outcome variable, lnRR. The column labeled "scl(crb_chn_lng)" shows the scaling factor applied to the variable "carbon_chain_length" random effects term, so it means the variable "carbon_chain_length" is included in the model and it's random effects term has been scaled by 0.3964.
 
 # Conditional analyses
 
