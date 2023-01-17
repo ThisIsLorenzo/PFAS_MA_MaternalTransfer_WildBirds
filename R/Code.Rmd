@@ -96,6 +96,7 @@ pacman::p_load(tidyverse,
                ape,
                curl,
                rotl,
+               RColorBrewer,
                here,
                dm,
                dplyr,
@@ -782,7 +783,7 @@ ggplot(table_sample_sizes_df, aes(x=variable,
   coord_flip() +
   ggtitle("Sample sizes") +
   theme_light() +
-  scale_fill_manual(values = my_palette, , guide = guide_legend(reverse = TRUE))
+  scale_fill_manual(values = my_palette, guide = guide_legend(reverse = TRUE))
 
 
 # Save the table
@@ -1175,26 +1176,90 @@ orchard_plot(fun_gro_model,
              angle = 45)
 #TODO
 
-test1 <- run_model(dat, ~ functional_group)
-summary(test1)
-
-test2 <- run_model(dat, ~ relevel(factor(functional_group), ref = "mixed"))
-summary(test2)
-
-
-library(multicomp)
-
-contrasts <- glht(test1)
+# test1 <- run_model(dat, ~ functional_group)
+# summary(test1)
+# 
+# test2 <- run_model(dat, ~ relevel(factor(functional_group), ref = "mixed"))
+# summary(test2)
+# 
+# 
+# library(multicomp)
+# 
+# contrasts <- glht(test1)
 
 ```
 
-### Feeding ecology (main food type)
+### Diet
+
+```{r, eval=FALSE}
+diet_model <- run_model(dat, ~ diet)
+
+save(diet_model, file = here("Rdata", "diet_model.RData"))
+```
+```{r}
+load(here("RData", "diet_model.RData"))
+summary(diet_model)
+
+orchard_plot(diet_model,
+             mod = "diet",
+             group = "study_ID",
+             data =dat, 
+             xlab = "lnRR",
+             angle = 45)
+```
 
 ### Bird's body weight
 
-### Average clutch size
+```{r, eval=FALSE}
+body_weight_model <- run_model(dat, ~ body_weight_mean)
 
-### Egg mass
+save(body_weight_model, file = here("Rdata", "body_weight_model.RData"))
+```
+```{r}
+load(here("RData", "body_weight_model.RData"))
+summary(body_weight_model)
+
+bubble_plot(body_weight_model,
+             mod = "body_weight_mean",
+             group = "study_ID",
+             data = dat, 
+             xlab = "body_weight_mean")
+```
+### Clutch size
+
+```{r, eval=FALSE}
+clutch_size_model <- run_model(dat, ~ clutch_size)
+
+save(clutch_size_model, file = here("Rdata", "clutch_size_model.RData"))
+```
+```{r}
+load(here("RData", "clutch_size_model.RData"))
+summary(clutch_size_model)
+
+bubble_plot(clutch_size_model,
+             mod = "clutch_size",
+             group = "study_ID",
+             data = dat, 
+             xlab = "clutch_size")
+```
+
+### Egg weight
+
+```{r, eval=FALSE}
+egg_weight_model <- run_model(dat, ~ egg_weight_mean)
+
+save(egg_weight_model, file = here("Rdata", "egg_weight_model.RData"))
+```
+```{r}
+load(here("RData", "egg_weight_model.RData"))
+summary(egg_weight_model)
+
+bubble_plot(egg_weight_model,
+             mod = "egg_weight_mean",
+             group = "study_ID",
+             data = dat, 
+             xlab = "egg_weight_mean")
+```
 
 ### Laying order
 
@@ -1207,12 +1272,6 @@ save(laying_order_model, file = here("Rdata", "laying_order_model.RData"))
 ```{r}
 load(here("RData", "laying_order_model.RData"))
 summary(laying_order_model)
-orchard_plot(laying_order_model,
-             mod = "laying_order",
-             group = "study_ID",
-             data = dat, 
-             xlab = "lnRR",
-             angle = 45)
 bubble_plot(laying_order_model,
              mod = "laying_order",
              group = "study_ID",
@@ -1321,9 +1380,9 @@ orchard_plot(mmr_lay_ccl,
              by = "carbon_chain_length" )
 
 # TODO
-test4 <- run_model(dat, ~ laying_order*scale(carbon_chain_length) )
-
-summary(test4)
+# test4 <- run_model(dat, ~ laying_order*scale(carbon_chain_length) )
+# 
+# summary(test4)
 
 ```
 
@@ -1361,7 +1420,11 @@ full_model0 <- rma.mv(yi = lnRR,
                         functional_group +
                         scale(carbon_chain_length) +
                         sample_type_A +
-                        sample_type_P,
+                        sample_type_P +
+                        clutch_size +
+                        scale(body_weight_mean) +
+                        scale(egg_weight_mean) +
+                        diet,
                       random = list(~1|study_ID,
                                     ~1|pfas_ID, 
                                     ~1|es_ID
