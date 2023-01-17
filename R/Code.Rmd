@@ -1279,6 +1279,26 @@ bubble_plot(laying_order_model,
              xlab = "laying_order")
 ```
 
+### Life stage progeny
+
+```{r, eval=FALSE}
+life_stage_model <- run_model(dat, ~ life_stage_P)
+
+save(life_stage_model, file = here("Rdata", "life_stage_model.RData"))
+```
+
+```{r}
+load(here("RData", "life_stage_model.RData"))
+summary(life_stage_model)
+orchard_plot(life_stage_model,
+             mod = "life_stage_P",
+             group = "study_ID",
+             data =dat, 
+             xlab = "lnRR",
+             angle = 45)
+```
+
+
 ## Mulit-moderator models
 
 ### Albumen \* Carbon chain length
@@ -1424,7 +1444,9 @@ full_model0 <- rma.mv(yi = lnRR,
                         clutch_size +
                         scale(body_weight_mean) +
                         scale(egg_weight_mean) +
-                        diet,
+                        diet +
+                        scale(laying_order) +
+                        life_stage_P,
                       random = list(~1|study_ID,
                                     ~1|pfas_ID, 
                                     ~1|es_ID
@@ -1432,6 +1454,7 @@ full_model0 <- rma.mv(yi = lnRR,
                       test = "t",
                       data = dat,
                       sparse = TRUE)
+
 save(full_model0, file = here("Rdata", "full_model0.RData"))
 ```
 
