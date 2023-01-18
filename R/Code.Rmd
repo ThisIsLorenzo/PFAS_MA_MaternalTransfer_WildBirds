@@ -654,8 +654,19 @@ var_lnRR <- var_lnRR_ind(mean_A = nt2$mean_A,
                          aCV2a = nt2$b_CV2_1,
                          aCV2p = nt2$b_CV2_2) 
 
+dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
+```
+
+## Effective sample size (N_tilde) and its standard error calculations
+
+These calculations will be used later on in the publication bias analyses.
+The harmonic mean is used instead of the simple average of the two sample sizes because it gives more weight to the smaller sample size, which can help to reduce the potential for bias in the meta-analysis.
+
+```{r}
 dat <- nt2 %>% 
-  dplyr::mutate(N_tilde = (n_A*n_P)/(n_A + n_P)) # getting effective sample size
+  dplyr::mutate(N_tilde = (n_A*n_P)/(n_A + n_P)) # getting effective sample size calculating the harmonic mean of the two sample sizes. 
+
+dat$ess.se <- sqrt(dat$N_tilde) # calculate adapted sampling error based on effective size - tilde square root n
 
 dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
 ```
@@ -1507,29 +1518,53 @@ All the variables (labeled "fnc_grp", "smp_typ_A", "smp_typ_P" and "crb_chn_lng"
 
 # Conditional analyses
 
-# Funnel plot
-
 # Publication bias
 
-Here I test for publication bias using the year of publication.
+Publication bias is the phenomenon where studies with certain characteristics, such as small sample size, are more likely to be published.
 
-```{r, eval = FALSE}
-mr_model_pb <- metafor::rma.mv(lnRR,
-                            var_lnRR,
-                            mods = ~ year_publication,
-                            random = list(~1|study_ID, 
-                            ~1|species_ID,
-                            ~1|pfas_ID, 
-                            ~1|es_ID
-                            ),
-                            data = dat)
-save(mr_model_pb, file = here("Rdata", "mr_model_pb.RData"))
+## Small study effect
+
+One form of publication bias is the small study effect, where smaller studies tend to report larger treatment effects than larger studies. To detect this, one way is to examine the relationship between effect size and its uncertainty by adding the uncertainty as a moderator variable. This will allow to quantify the correlation between the effect size and its uncertainty.
+
+```{r, eval=FALSE}
+MLMR_mod_ess.se <- rma.mv(yi = lnRR, 
+                               V = VCV_lnRR, 
+                               mods = ~ ess.se, # add adjusted based sampling error - tilde square root n as a moderator to test small study effect (see section "lnRR and variance calculations).
+                               random = list(~1|study_ID,
+                                          ~1|pfas_ID, 
+                                          ~1|es_ID
+                                          ), 
+                               method = "REML", 
+                               test = "t", 
+                               data = dat
+                               )
+save(MLMR_mod_ess.se, file = here("Rdata", "MLMR_mod_ess.se.RData"))
 ```
 
 ```{r}
-load(here("RData", "mr_model_pb.RData"))
-summary(mr_model_pb) # No publication bias (p-val = 0.3233)
-pb_bubble <- orchaRd::mod_results(mr_model_pb,
+load(here("RData", "MLMR_mod_ess.se.RData"))
+summary(MLMR_mod_ess.se)
+```
+If we look at ess.se given under Model Results: p-value and 95% CIs suggest that there is no statistical relationship between the effect size its error, meaning that no small study effect exits.
+
+## Time-lag bias
+
+```{r, eval = FALSE}
+MLMR_mod_year.c <- metafor::rma.mv(lnRR,
+                            VCV_lnRR,
+                            mods = ~ scale(year_publication),
+                            random = list(~1|study_ID,
+                                          ~1|pfas_ID, 
+                                          ~1|es_ID
+                                          ),
+                            data = dat)
+save(MLMR_mod_year.c, file = here("Rdata", "MLMR_mod_year.c.RData"))
+```
+
+```{r}
+load(here("RData", "MLMR_mod_year.c.RData"))
+summary(MLMR_mod_year.c)
+pb_bubble <- orchaRd::mod_results(MLMR_mod_year.c,
                                   mod = "year_publication",
                                   group = "study_ID",
                                   data = dat)
@@ -1541,6 +1576,7 @@ orchaRd::bubble_plot(pb_bubble,
                      xlab = "Year", 
                      legend.pos = "top.left")
 ```
+If we look at ess.se given under Model Results: p-value and 95% CIs suggest that there is no statistical relationship between the effect size its error, meaning that no time-lag bias exits.
 
 # Sensitivity analysis - Models
 
