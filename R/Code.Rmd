@@ -548,7 +548,7 @@ We follow the methods proposed by Nakagawa et al., 2022 ([A robust and readily i
 
 We will first calculate the between study CV using the `cvg_avg` function. Here, we need to do this for the adults and progeny groups as follows, such that variable b_CV_1 and b_CV_2 are the averages for the adults and progeny groups, respectively. Then, we calculate the average between study CV, which will replace missing values.
 
-```{r}
+```{r, eval=FALSE}
 #How many missing sd values?
 count(nt2, sd_A == "NA")
 #   sd_A == "NA"   n
@@ -1218,6 +1218,25 @@ orchard_plot(diet_model,
              xlab = "lnRR",
              angle = 45)
 ```
+### Main food item
+
+```{r, eval=FALSE}
+food_model <- run_model(dat, ~ main_food_type)
+
+save(food_model, file = here("Rdata", "food_model.RData"))
+```
+```{r}
+load(here("RData", "food_model.RData"))
+summary(food_model)
+
+orchard_plot(food_model,
+             mod = "main_food_type",
+             group = "study_ID",
+             data =dat, 
+             xlab = "lnRR",
+             angle = 45)
+```
+
 
 ### Bird's body weight
 
@@ -1502,7 +1521,7 @@ mod.candidate <- dredge(full_model0, beta = "none", evaluate = TRUE, rank = "AIC
 save(mod.candidate, file = here("Rdata", "best_model.RData"))
 ```
 
-```{r, eval=FALSE}
+```{r}
 load(here("RData", "best_model.RData"))
 # Next step, let’s select a sets of best model. This can be done by using thumb of rules, for example, delta AICc <= 2:
 subset(mod.candidate, delta <= 2, recalc.weights = FALSE)
