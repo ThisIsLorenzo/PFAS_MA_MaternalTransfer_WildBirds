@@ -416,7 +416,8 @@ Accordingly, we used:
 $$
 \ln{\text{RR}} = \ln \left( \frac{m_{T}} {m_{C}}\right) + 
 \frac{1}{2} \left(\frac{\sum_{i=1}^{k}{\text{CV}_{Ti}^2}/k} {n_{T}} - \frac{\sum_{i=1}^{k}{\text{CV}_{Ci}^2}/k} {n_{C}}\right)
-$$ $$
+$$
+$$
 v(\ln{\text{RR}})= \frac{\sum_{i=1}^{k}{\text{CV}_{Ti}^2}/k} {n_{T
 }} + \frac{\sum_{i=1}^{k}{\text{CV}_{Ci}^2}/k} {n_{C}}
 $$
@@ -524,20 +525,21 @@ count(nt2, sd_P == "NA")
 ```
 
 ```{r}
-cv_avg <- function(x, 
-                   sd, 
-                   n, 
-                   group,
-                   data,
-                   label = NULL,
-                   sub_b = TRUE, 
-                   cv2=FALSE){
+cv_avg <- function(x, #mean values
+                   sd, #standard deviation values
+                   n, #sample size values
+                   group, #variable to group the data by
+                   data, #data table to use
+                   label = NULL, #label the new columns in the data table
+                   sub_b = TRUE, #whether or not to keep only the columns with "b_" in their names
+                   cv2=FALSE) #whether or not to calculate the squared coefficient of variation
+  {
 
 # Check if the name is specified or not. If not, then assign it the name of the mean, x, variable input in the function. https://stackoverflow.com/questions/60644445/converting-tidyeval-arguments-to-string
   
 if(is.null(label)){
   label <- purrr::map_chr(enquos(x), rlang::as_label)
-}
+} #checking if the "label" variable is null, and if so, creates a new variable "label" which is a list of the labels of the variables passed as arguments using the purrr and rlang packages
   
 weighted_CV <- function(sd, x, n, cv2=FALSE){
   if(cv2){
@@ -545,22 +547,23 @@ weighted_CV <- function(sd, x, n, cv2=FALSE){
   }else{
     weighted.mean(na_if((sd / x), Inf), n, na.rm = TRUE)^2
   }
-}
+} #nested function called "weighted_CV" that calculates the weighted CV based on the values of sd, x, and n, and whether cv2 is true or false
+
 # Calculate between study CV. Take weighted mean CV within study, and then take a weighted mean across studies of the within study CV. Weighted based on sample size and pooled sample size.
   b_grp_cv_data <- nt %>%
-    dplyr::group_by({{group}}) %>%
+    dplyr::group_by({{group}}) %>% #grouping by group variable
     dplyr::mutate(w_CV2 = weighted_CV({{sd}}, 
                                          {{x}}, 
                                          {{n}},
                                          cv2=cv2),
-                     n_mean = mean({{n}}, na.rm = TRUE)) %>%
-    dplyr::ungroup(.) %>%
+                     n_mean = mean({{n}}, na.rm = TRUE)) %>% #calculating the weighted CV2 using the nested function and calculating the mean of the sample size variable
+    dplyr::ungroup(.) %>% #ungrouping
     dplyr::mutate(b_CV2 = weighted.mean(w_CV2,
                                         n_mean,
-                                        na.rm = TRUE), .keep = "used")
+                                        na.rm = TRUE), .keep = "used") # calculating the between-study CV2 by taking a weighted mean of the within-study CV2
 
 # Make sure that label of the calculated columns is distinct from any other columns
-  names(b_grp_cv_data) <- paste0(names(b_grp_cv_data), "_", label)
+  names(b_grp_cv_data) <- paste0(names(b_grp_cv_data), "_", label) #renaming the columns by appending "_label" to them
 
 # Append these calculated columns back to the original data and return the full dataset.
   if(sub_b){
@@ -572,7 +575,7 @@ weighted_CV <- function(sd, x, n, cv2=FALSE){
   }
 
   return(data.frame(dat_new))
-}
+} #keeping only the columns with "b_" in their names, or keeping all columns, and binding the calculated columns back to the original data and returning the full dataset
   
 # Calculate the average between study CV, which will replace missing values
 nt2 <- cv_avg(x = mean_A,
@@ -580,7 +583,7 @@ nt2 <- cv_avg(x = mean_A,
              n = n_A,
              group = study_ID,
              label = "1",
-             data = nt2)
+             data = nt2) #using the cv_avg function to calculate the average between-study CV of the mean and standard deviation values of adult and progeny measurements by passing the appropriate variables and data table (nt2) as arguments, and saves the results to the same data table (nt2)
 
 nt2 <- cv_avg(x = mean_P,
              sd = sd_P,
@@ -1264,6 +1267,8 @@ bubble_plot(egg_weight_model,
 ### Laying order
 
 ```{r, eval=FALSE}
+sum(is.na(dat$laying_order)) #checking the number of NAs
+#[1] 315
 laying_order_model <- run_model(dat, ~scale(laying_order))
 
 save(laying_order_model, file = here("Rdata", "laying_order_model.RData"))
@@ -1277,6 +1282,7 @@ bubble_plot(laying_order_model,
              group = "study_ID",
              data = dat, 
              xlab = "laying_order")
+#laying order has many NAs. Thus, it won't be added to the full model.
 ```
 
 ### Life stage progeny
@@ -1432,6 +1438,8 @@ orchard_plot(mmr_model3,
 
 # Full model
 
+Mixed-effects meta-regression model
+
 ```{r, eval=FALSE}
 full_model0 <- rma.mv(yi = lnRR,
                       V = VCV_lnRR, 
@@ -1440,11 +1448,10 @@ full_model0 <- rma.mv(yi = lnRR,
                         scale(carbon_chain_length) +
                         sample_type_A +
                         sample_type_P +
-                        clutch_size +
+                        scale(clutch_size) +
                         scale(body_weight_mean) +
                         scale(egg_weight_mean) +
                         diet +
-                        scale(laying_order) +
                         life_stage_P,
                       random = list(~1|study_ID,
                                     ~1|pfas_ID, 
