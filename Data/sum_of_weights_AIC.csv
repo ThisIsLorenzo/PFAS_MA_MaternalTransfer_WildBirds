@@ -1,0 +1,10 @@
+Predictor,Sum_of_weights,n_containing_models,R2_marginal,R2_conditional
+sample_type_P,1,256,0.62,0.79
+carbon_chain_length,1,256,0.039,0.097
+egg_weight_mean,1,256,0.003,0.064
+sample_type_A,1,256,0.135,0.213
+diet,0.97,256,0.061,0.091
+functional_group,0.89,256,0.018,0.069
+clutch_size,0.82,256,0.034,0.06
+body_weight_mean,0.54,256,0.005,0.066
+life_stage_P,0.5,256,0.007,0.086

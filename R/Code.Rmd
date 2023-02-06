@@ -1003,6 +1003,23 @@ Note: All continuous variables were z-transformed.
 
 ### Sample type progeny
 
+```{r, eval=FALSE}
+sample_type_p_model <- run_model(dat, ~sample_type_P)
+
+save(sample_type_p_model, file = here("Rdata", "sample_type_p_model.RData"))
+```
+
+```{r}
+load(here("RData", "sample_type_p_model.RData"))
+summary(sample_type_p_model)
+#r2_ml(sample_type_p_model, dat, boot = 10)
+#                Est.  2.5% 97.5%                                                                                          
+# R2_marginal    0.62 0.546 0.675
+# R2_conditional 0.79 0.773 0.823
+```
+
+Make same plot but with albumen and others
+
 ```{r}
 dat$albumen <- ifelse(dat$sample_type_P == "albumen", "albumen", "others")
 ```
@@ -1055,6 +1072,10 @@ save(sample_type_a_model, file = here("Rdata", "sample_type_a_model.RData"))
 ```{r, eval=FALSE}
 load(here("RData", "sample_type_a_model.RData"))
 summary(sample_type_a_model)
+#r2_ml(sample_type_a_model, dat, boot = 10)
+#                 Est.  2.5% 97.5%                                                                                         
+# R2_marginal    0.135 0.089 0.155
+# R2_conditional 0.213 0.146 0.326
 
 orchard_plot(sample_type_a_model,
              mod = "sample_type_A",
@@ -1066,8 +1087,12 @@ orchard_plot(sample_type_a_model,
 ### PFAS carbon chain length
 
 ```{r, eval=FALSE}
-
-ccl_model <- run_model(dat, ~scale(carbon_chain_length))
+sum(is.na(dat$carbon_chain_length))
+#[1] 65
+dat_ccc <- dat[complete.cases(dat[ , "carbon_chain_length"]),]
+sum(is.na(dat_ccc$carbon_chain_length))
+#[1] 0
+ccl_model <- run_model(dat_ccc, ~scale(carbon_chain_length))
 
 save(ccl_model, file = here("Rdata", "ccl_model.RData"))
 ```
@@ -1075,11 +1100,15 @@ save(ccl_model, file = here("Rdata", "ccl_model.RData"))
 ```{r}
 load(here("RData", "ccl_model.RData"))
 summary(ccl_model)
+#r2_ml(ccl_model, dat_ccc, boot = 10)
+#                 Est.  2.5% 97.5%                                                                                         
+# R2_marginal    0.039 0.004 0.065
+# R2_conditional 0.097 0.029 0.137
 
 bubble_plot(ccl_model,
             mod = "carbon_chain_length",
             group = "study_ID", 
-            data =dat, 
+            data = dat_ccc, 
             xlab = "carbon_chain_length")
 ```
 
@@ -1133,7 +1162,13 @@ cor.test(dat$carbon_chain_length, dat$molecular_weight) #extremely highly correl
 ### Functional group
 
 ```{r, eval=FALSE}
-fun_gro_model <- run_model(dat, ~ functional_group - 1)
+sum(is.na(dat$functional_group))
+#[1] 1
+dat_fg <- dat[complete.cases(dat[ , "functional_group"]),]
+sum(is.na(dat_fg$functional_group))
+#[1] 0
+
+fun_gro_model <- run_model(dat_fg, ~ functional_group - 1)
 
 save(fun_gro_model, file = here("Rdata", "fun_gro_model.RData"))
 ```
@@ -1141,13 +1176,18 @@ save(fun_gro_model, file = here("Rdata", "fun_gro_model.RData"))
 ```{r}
 load(here("RData", "fun_gro_model.RData"))
 summary(fun_gro_model)
+#r2_ml(fun_gro_model, dat_fg, boot = 10)
+#                 Est.  2.5% 97.5%                                                                                         
+# R2_marginal    0.018 0.006 0.039
+# R2_conditional 0.069 0.030 0.117
 
 orchard_plot(fun_gro_model,
              mod = "functional_group",
              group = "study_ID",
-             data =dat, 
+             data =dat_fg, 
              xlab = "lnRR",
              angle = 45)
+
 #TODO
 
 # test1 <- run_model(dat, ~ functional_group)
@@ -1174,6 +1214,10 @@ save(diet_model, file = here("Rdata", "diet_model.RData"))
 ```{r}
 load(here("RData", "diet_model.RData"))
 summary(diet_model)
+#r2_ml(diet_model, dat, boot = 10)
+#                 Est.  2.5% 97.5%                                                                                         
+# R2_marginal    0.061 0.034 0.088
+# R2_conditional 0.091 0.040 0.143
 
 orchard_plot(diet_model,
              mod = "diet",
@@ -1218,6 +1262,10 @@ save(body_weight_model, file = here("Rdata", "body_weight_model.RData"))
 ```{r}
 load(here("RData", "body_weight_model.RData"))
 summary(body_weight_model)
+#r2_ml(body_weight_model, dat, boot = 10)
+#                 Est.  2.5% 97.5%                                                                                         
+# R2_marginal    0.005 0.000 0.018
+# R2_conditional 0.066 0.036 0.102
 
 bubble_plot(body_weight_model,
              mod = "body_weight_mean",
@@ -1237,6 +1285,10 @@ save(clutch_size_model, file = here("Rdata", "clutch_size_model.RData"))
 ```{r}
 load(here("RData", "clutch_size_model.RData"))
 summary(clutch_size_model)
+#r2_ml(clutch_size_model, dat, boot = 10)
+#                 Est.  2.5% 97.5%                                                                                         
+# R2_marginal    0.034 0.015 0.060
+# R2_conditional 0.060 0.037 0.091
 
 bubble_plot(clutch_size_model,
              mod = "clutch_size",
@@ -1248,7 +1300,12 @@ bubble_plot(clutch_size_model,
 ### Egg weight
 
 ```{r, eval=FALSE}
-egg_weight_model <- run_model(dat, ~ egg_weight_mean)
+sum(is.na(dat$egg_weight_mean))
+#[1] 67
+dat_egg_weight <- dat[complete.cases(dat[ , "egg_weight_mean"]),]
+sum(is.na(dat_egg_weight$egg_weight_mean))
+#[1] 0
+egg_weight_model <- run_model(dat_egg_weight, ~ egg_weight_mean)
 
 save(egg_weight_model, file = here("Rdata", "egg_weight_model.RData"))
 ```
@@ -1256,11 +1313,15 @@ save(egg_weight_model, file = here("Rdata", "egg_weight_model.RData"))
 ```{r}
 load(here("RData", "egg_weight_model.RData"))
 summary(egg_weight_model)
+#r2_ml(egg_weight_model, dat_egg_weight, boot = 10)
+#                 Est.  2.5% 97.5%                                                                                         
+# R2_marginal    0.003 0.000 0.026
+# R2_conditional 0.064 0.025 0.168
 
 bubble_plot(egg_weight_model,
              mod = "egg_weight_mean",
              group = "study_ID",
-             data = dat, 
+             data = dat_egg_weight, 
              xlab = "egg_weight_mean")
 ```
 
@@ -1296,6 +1357,11 @@ save(life_stage_model, file = here("Rdata", "life_stage_model.RData"))
 ```{r}
 load(here("RData", "life_stage_model.RData"))
 summary(life_stage_model)
+#r2_ml(life_stage_model, dat, boot = 10)
+#                 Est.  2.5% 97.5%                                                                                         
+# R2_marginal    0.007 0.000 0.027
+# R2_conditional 0.086 0.022 0.145
+
 orchard_plot(life_stage_model,
              mod = "life_stage_P",
              group = "study_ID",
@@ -1497,10 +1563,92 @@ mod.candidate <- dredge(full_model0, beta = "none", evaluate = TRUE, rank = "AIC
 save(mod.candidate, file = here("Rdata", "best_model.RData"))
 ```
 
+```{r, eval=FALSE}
+# Next step, let’s select a sets of best model. This can be done by using thumb of rules, for example, delta AICc <= 4:
+subset(mod.candidate, delta <= 4, recalc.weights = FALSE)
+# Sum of weights for each variable included in the mod.candidate
+```
+
 ```{r}
 load(here("RData", "best_model.RData"))
-# Next step, let’s select a sets of best model. This can be done by using thumb of rules, for example, delta AICc <= 2:
-subset(mod.candidate, delta <= 2, recalc.weights = FALSE)
+
+sw(mod.candidate)
+
+weights <- read_csv(here("Data", "sum_of_weights_AIC.csv"))
+
+weights <- weights %>% 
+  mutate(weights_percentage = round( Sum_of_weights * 100))
+
+weights$Predictor <- factor(weights$Predictor, levels = weights$Predictor[order(weights$weights_percentage, weights$R2_conditional)])
+```
+
+R-squared conditional is more appropriate the R-squared marginal for comparing different models that have the same set of predictor variables and here we are comparing the R-squared of single-moderator meta-regression models that have the same random structure but a different moderator.
+This is because R-squared conditional measures the strength of the relationship between the dependent and independent variables, given that the other variables are already included in the model. By using R-squared conditional, you can compare the relative strength of the relationships between the dependent variable and the independent variables in each of the models, taking into account the other variables that are included in both models.
+
+Plot
+```{r}
+
+AIC_weights <- ggplot(weights, aes(Predictor, Sum_of_weights)) +
+  geom_col(aes(fill = ""), width = 0.7) +
+  geom_text(aes(label = paste0(weights_percentage, "%"), x = Predictor), 
+            position = position_stack(vjust = 0.5), 
+            size = 3) +
+  geom_text(aes(label = paste("R2 =", sprintf("%.3f", R2_conditional)), x = Predictor, y =  max(Sum_of_weights)), #R2 conditional 
+            position = position_stack(vjust = 1.07), 
+            size = 3, color = "red") +
+  theme_light() +
+  coord_flip() +
+  scale_fill_manual(values = c("#999999")) +
+  scale_x_discrete(name = "Predictor") +
+  scale_y_continuous(name = "AIC weights",
+                     breaks = seq(0, 1, by = 0.2)) +
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 8.5),
+        axis.title.y = element_text(size = 8.5),
+        axis.text = element_text(size = 8),
+        panel.grid.major = element_line(color = "grey", 
+                                       linewidth  = 0.2, 
+                                       linetype = "dashed"),
+       panel.grid.minor = element_line(color = "grey", 
+                                      linewidth  = 0.2, 
+                                      linetype = "dotted"))
+AIC_weights
+
+# ggsave(here("RData", "AIC_weights.png"),
+#        width = 8.5,
+#        height = 6)
+
+# weights <- weights %>% 
+#   arrange(desc(weights_percentage), desc(R2_conditional))
+# 
+# weights$Predictor <- factor(weights$Predictor, levels = weights$Predictor[order(weights$weights_percentage, weights$R2_conditional)])
+# 
+# R2 <- ggplot(weights, aes(Predictor, R2_conditional)) +
+#   geom_col(aes(fill = ""), width = 0.7) +
+#   geom_text(aes(label = paste("Weight =", sprintf("%.2f", Sum_of_weights)), x = Predictor, y =  max(R2_conditional)), 
+#             position = position_stack(vjust = 1.1), 
+#             size = 3, color = "red") +
+#   theme_light() +
+#   coord_flip() +
+#   scale_fill_manual(values = c("#999999")) +
+#   scale_x_discrete(name = "Predictor") +
+#   scale_y_continuous(name = "R-squared",
+#                      breaks = seq(0, 0.7, by = 0.1)) +
+#   theme(legend.position = "none",
+#         axis.title.x = element_text(size = 8.5),
+#         axis.title.y = element_text(size = 8.5),
+#         axis.text = element_text(size = 8),
+#         panel.grid.major = element_line(color = "grey", 
+#                                        linewidth  = 0.2, 
+#                                        linetype = "dashed"),
+#        panel.grid.minor = element_line(color = "grey", 
+#                                       linewidth  = 0.2, 
+#                                       linetype = "dotted"))
+# R2
+
+# ggsave(here("RData", "R2.png"),
+#        width = 10,
+#        height = 6)
 ```
 
 The model selection table shows the results of model selection based on the AICc criterion.
