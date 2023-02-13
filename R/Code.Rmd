@@ -426,9 +426,11 @@ where k is the number of effect sizes (or studies) and the other symbols are the
 
 # Functions
 
+## Function to calculate lnRR
+
 The `lnRR_func` function is here used to calculate a log response ratio (lnRR) adjusted for small sample sizes. In addition, this formula accounts for correlated samples. For more details, see *Doncaster and Spake (2018) Correction for bias in meta-analysis of little-replicated studies. Methods in Ecology and Evolution; 9:634-644*
 
-lnRR (point estimate) and var_nlRR ([sampling] variance estimate) forumulas are from Hedges et al. (1999) and subsequently extended by Lajeunesse (2011) and Senior et al. (2020).
+lnRR (point estimate) and var_lnRR ([sampling] variance estimate) forumulas are from Hedges et al. (1999) and subsequently extended by Lajeunesse (2011) and Senior et al. (2020).
 
 ```{r function to calculate effect size}
 #Changing columns names to make them shorter
@@ -469,6 +471,80 @@ var_lnRR_ind <- function(mean_A,
 # aCV2a: Mean coefficient of variation of the adult samples
 # aCV2p: Mean coefficient of variation of the progeny samples
 
+```
+
+## Function to run all models with the same structure
+
+```{r}
+run_model <- function(data, formula){
+  data <- as.data.frame(data) # convert data set into a data frame to calculate VCV matrix 
+  VCV <- impute_covariance_matrix(data$var_lnRR,
+                                     cluster = data$measurement_ID_A, 
+                                     r = 0.5) # create VCV matrix for the specified data
+  rma.mv(lnRR, VCV, # run the model, as described earlier
+         mods = formula,
+         random = list(~1|study_ID,
+                       ~1|pfas_ID,
+                       ~1|es_ID),
+         test = "t",
+         data = data,
+         sparse = TRUE)
+}
+```
+
+## Functions to run plots with the same structure
+
+```{r}
+# plot_continuous <- function(data, 
+#                             model,
+#                             moderator,
+#                             xlab){
+# 
+# pred <- predict.rma(model)
+# 
+# data %>% mutate(fit=pred$pred, 
+#                ci.lb=pred$ci.lb,
+#                ci.ub=pred$ci.ub,
+#                pr.lb=pred$cr.lb,
+#                pr.ub=pred$cr.ub) %>% # Add confidence intervals, mean predictions and prediction intervals
+# ggplot(aes(x = moderator, 
+#            y = lnRR)) +
+#      geom_ribbon(aes(ymin = pr.lb, 
+#                      ymax = pr.ub, 
+#                      color = NULL), 
+#                  alpha = .075) + # Shaded area for prediction intervals
+#      geom_ribbon(aes(ymin = ci.lb,
+#                      ymax = ci.ub,
+#                      color = NULL), 
+#                  alpha = .2) + # Shaded area for confidence intervals
+#      geom_point(aes(size=(1/sqrt(VCV_lnRR))), 
+#                     #fill=Cooking_Category),
+#                 shape=21,
+#                 alpha=0.8) + # Points scaled by precision
+#      scale_fill_manual(values=c("#55C667FF",
+#                                            "goldenrod2",
+#                                            "dodgerblue3"))+
+#      geom_line(aes(y = fit), 
+#                size = 1.5)+  # Regression line
+#   labs(x = xlab, y = "lnRR", 
+#        size = "Precison (1/SE)") +
+#   theme_bw() +
+#   scale_size_continuous(range=c(1,9))+ # Point scaling
+#   geom_hline(yintercept = 0,
+#              linetype = 2,
+#              colour = "black",
+#              alpha=0.5)+   # horizontal line at lnRR = 0
+#   theme(text = element_text(size = 18,
+#                             colour = "black",
+#                             hjust = 0.5), # change font sizes and legend position
+#           legend.text=element_text(size=14),
+#           legend.position=c(0,0), 
+#           legend.justification = c(0,0),
+#           legend.background = element_blank(), 
+#           legend.direction="horizontal",
+#           legend.title = element_text(size=15), 
+#           panel.border=element_rect(colour="black", fill=NA, size=1.2))
+# }
 ```
 
 # Phylogenetic information
@@ -646,7 +722,7 @@ VCV_lnRR <- impute_covariance_matrix(dat$var_lnRR,
                                      cluster = dat$measurement_ID_A, 
                                      r = 0.5)
 
-# Making the same in a data set without albumen (as it brings strong heterogeneity)
+# Making the same in a data set without albumen.
 
 dat_noalbumen <-  dat %>% 
   dplyr::filter(sample_type_P != "albumen")
@@ -657,28 +733,59 @@ VCV_lnRR_noalbumen <- impute_covariance_matrix(dat_noalbumen$var_lnRR,
 
 ```
 
-# Sensitivity analysis - Data
+# Sensitivity analysis
 
-Here I create three data sets to run a sensitivity analysis. The first data set (i.e., dat) will include all the data. The second (i.e., *dat2*) one will drop out data that are from pooled samples (i.e., from adult male + female pooled data) and/or data from adults and progeny that come from different nests. The third one (i.e., *dat3*) will drop out all effect size measures where the PFAS concentration in the adult OR progeny is below the limit of detection/quantification. Eval is false in the following chunks.
+```{r}
+#calculate the variance-covariance in a data set without albumen.
+dat_noalbumen <-  dat %>% 
+  dplyr::filter(sample_type_P != "albumen")
+
+VCV_lnRR_noalbumen <- impute_covariance_matrix(dat_noalbumen$var_lnRR,
+                                     cluster = dat_noalbumen$measurement_ID_A, 
+                                     r = 0.5)
+
+#calculate the variance-covariance in a data set without Parus major.
+dat_noparus <-  dat %>% 
+  dplyr::filter(species_ID != "se_007")
+dim(dat_noparus)
+#[1] 309  62
+
+VCV_lnRR_noparus <- impute_covariance_matrix(dat_noparus$var_lnRR,
+                                     cluster = dat_noparus$measurement_ID_A, 
+                                     r = 0.5)
+
+```
+
+Here I create three data sets to run a sensitivity analysis. The first data set (i.e., *dat*) will include all the data. The second (i.e., *dat2*) one will drop out data that are from pooled samples (i.e., from adult male + female pooled data) and/or data from adults and progeny that come from different nests. The third one (i.e., *dat3*) will drop out all effect size measures where the PFAS concentration in the adult OR progeny is below the limit of detection/quantification. The fourth one (i.e., *dat4*) does not include the Parus major species (i.e., ID se_007).
+
+Eval is false in the following chunks.
 
 ```{r, eval=FALSE}
 dat2 <-
   dat %>%
   dplyr::filter(data_pooled == "No" & nest == "Yes")
 
+dim(dat2)
+#[1] 261  62
+
 VCV_lnRR_dat2 <- impute_covariance_matrix(dat2$var_lnRR,
                                           cluster = dat2$measurement_ID_A,
                                           r = 0.5)
+
 ```
 
 Remove all effect sizes where concentration in the adult OR progeny is below the limit of detection/quantification
 
 ```{r, eval=FALSE}
-Remove es_IDs where limit_type_A OR limit_type_P is != NA
+#Remove es_IDs where limit_type_A OR limit_type_P is != NA
 dat3 <-
   dat2 %>%
   dplyr::filter(if_all(c(limit_type_A, limit_type_P), ~is.na(.)))
+
+dim(dat3)
+#[1] 179  62
 ```
+
 
 # Graphics
 
@@ -743,25 +850,41 @@ table_sample_sizes_df$variable <- rownames(table_sample_sizes_df)
 
 table_sample_sizes_df <- table_sample_sizes_df %>% 
   dplyr::arrange(variable) %>%
+  dplyr::filter(variable != "Same nest" &
+                  variable != "Laying order" &
+                  variable != "Breeding stage") %>% 
+  mutate(variable = str_replace(variable, "pfas type", "pfas types")) %>% 
   mutate(variable = reorder(variable, `n (sample size)`))
+  
 
 
-my_palette <- colorRampPalette(brewer.pal(8, "Dark2"))(length(table_sample_sizes_df$variable))
-
-ggplot(table_sample_sizes_df, aes(x=variable,
-                                  y=`n (sample size)`, fill=variable)) +
-  geom_col() +
+plot_sample_sizes <- ggplot(table_sample_sizes_df, aes(x=variable,
+                                  y=`n (sample size)`)) +
+  geom_col(aes(fill = ""), width = 0.7) +
   geom_text(aes(label = `n (sample size)`),
             position = position_stack(vjust = 0.5),
-            size = 4) +
+            size = 2) +
   coord_flip() +
-  ggtitle("Sample sizes") +
   theme_light() +
-  scale_fill_manual(values = my_palette, guide = guide_legend(reverse = TRUE))
-
-
-# Save the table
-#ggsave(here("RData", "table_sample_sizes.png"), width = 10, height = 7)
+  scale_x_discrete(name = "Variable") +
+  scale_y_continuous(name = "n (sample size)",
+                     breaks = seq(0, 400, by = 50),
+                     expand = c(0,1)) +
+  scale_fill_manual(values = c("#999999")) +
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 7),
+        axis.title.y = element_text(size = 7),
+        axis.text = element_text(size = 6),
+        panel.grid.major = element_line(color = "grey", 
+                                       linewidth  = 0.2, 
+                                       linetype = "dashed"),
+       panel.grid.minor = element_line(color = "grey", 
+                                      linewidth  = 0.2, 
+                                      linetype = "dotted"))
+plot_sample_sizes
+# ggsave(here("RData", "plot_samplesizes.png"),
+#        width = 8,
+#        height = 6)
 
 ```
 
@@ -923,88 +1046,16 @@ Now that the effects of the grouping variables are modeled as random effects, we
 -   ...
 -   ...
 
-## Function to run all models with the same structure
-
-```{r}
-run_model <- function(data, formula){
-  data <- as.data.frame(data) # convert data set into a data frame to calculate VCV matrix 
-  VCV <- impute_covariance_matrix(data$var_lnRR,
-                                     cluster = data$measurement_ID_A, 
-                                     r = 0.5) # create VCV matrix for the specified data
-  rma.mv(lnRR, VCV, # run the model, as described earlier
-         mods = formula,
-         random = list(~1|study_ID,
-                       ~1|pfas_ID,
-                       ~1|es_ID),
-         test = "t",
-         data = data,
-         sparse = TRUE)
-}
-```
-
-## Functions to run plots with the same structure
-
-```{r}
-# plot_continuous <- function(data, 
-#                             model,
-#                             moderator,
-#                             xlab){
-# 
-# pred <- predict.rma(model)
-# 
-# data %>% mutate(fit=pred$pred, 
-#                ci.lb=pred$ci.lb,
-#                ci.ub=pred$ci.ub,
-#                pr.lb=pred$cr.lb,
-#                pr.ub=pred$cr.ub) %>% # Add confidence intervals, mean predictions and prediction intervals
-# ggplot(aes(x = moderator, 
-#            y = lnRR)) +
-#      geom_ribbon(aes(ymin = pr.lb, 
-#                      ymax = pr.ub, 
-#                      color = NULL), 
-#                  alpha = .075) + # Shaded area for prediction intervals
-#      geom_ribbon(aes(ymin = ci.lb,
-#                      ymax = ci.ub,
-#                      color = NULL), 
-#                  alpha = .2) + # Shaded area for confidence intervals
-#      geom_point(aes(size=(1/sqrt(VCV_lnRR))), 
-#                     #fill=Cooking_Category),
-#                 shape=21,
-#                 alpha=0.8) + # Points scaled by precision
-#      scale_fill_manual(values=c("#55C667FF",
-#                                            "goldenrod2",
-#                                            "dodgerblue3"))+
-#      geom_line(aes(y = fit), 
-#                size = 1.5)+  # Regression line
-#   labs(x = xlab, y = "lnRR", 
-#        size = "Precison (1/SE)") +
-#   theme_bw() +
-#   scale_size_continuous(range=c(1,9))+ # Point scaling
-#   geom_hline(yintercept = 0,
-#              linetype = 2,
-#              colour = "black",
-#              alpha=0.5)+   # horizontal line at lnRR = 0
-#   theme(text = element_text(size = 18,
-#                             colour = "black",
-#                             hjust = 0.5), # change font sizes and legend position
-#           legend.text=element_text(size=14),
-#           legend.position=c(0,0), 
-#           legend.justification = c(0,0),
-#           legend.background = element_blank(), 
-#           legend.direction="horizontal",
-#           legend.title = element_text(size=15), 
-#           panel.border=element_rect(colour="black", fill=NA, size=1.2))
-# }
-```
-
 ## Single-moderator models
 
 Note: All continuous variables were z-transformed.
+Note: more info on R2 (R-squared) for mixed (mulitlevel) models at the following
+references: Nakagawa, S, and Schielzeth, H. 2013. A general and simple method for obtaining R2 from generalized linear mixed‐effects models. Methods in Ecology and Evolution 4(2): 133-142.
 
 ### Sample type progeny
 
 ```{r, eval=FALSE}
-sample_type_p_model <- run_model(dat, ~sample_type_P)
+sample_type_p_model <- run_model(dat, ~ sample_type_P)
 
 save(sample_type_p_model, file = here("Rdata", "sample_type_p_model.RData"))
 ```
@@ -1016,9 +1067,15 @@ summary(sample_type_p_model)
 #                Est.  2.5% 97.5%                                                                                          
 # R2_marginal    0.62 0.546 0.675
 # R2_conditional 0.79 0.773 0.823
+
+orchard_plot(sample_type_p_model,
+             mod = "sample_type_P",
+             group = "study_ID", 
+             data = dat,
+             xlab = "lnRR")
 ```
 
-Make same plot but with albumen and others
+Make same plot but semplified - albumen and others
 
 ```{r}
 dat$albumen <- ifelse(dat$sample_type_P == "albumen", "albumen", "others")
@@ -1059,7 +1116,36 @@ orchard_plot(albumen_model,
                  text = element_text(size = 24), # change font sizes
                  legend.title = element_text(size = 15),
                  legend.text = element_text(size = 13))
+
+subset(dat, dat$sample_type_P == "albumen")$study_ID
+#albumen comes from only 1 study: S_002
 ```
+
+#### Sensitivity analysis
+Excluding albumen from the model.
+```{r, eval=FALSE}
+albumen_model_sensitivity <- run_model(dat_noalbumen, ~ sample_type_P)
+
+save(albumen_model_sensitivity, file = here("Rdata", "albumen_model_sensitivity.RData"))
+```
+
+```{r}
+load(here("RData", "albumen_model_sensitivity.RData"))
+summary(albumen_model_sensitivity)
+#r2_ml(albumen_model_sensitivity, dat_noalbumen, boot = 10)
+#                 Est.  2.5% 97.5%                                                                
+# R2_marginal    0.036 0.011 0.085
+# R2_conditional 0.516 0.342 0.684
+
+orchard_plot(albumen_model_sensitivity,
+             mod = "sample_type_P",
+             group = "study_ID", 
+             data = dat_noalbumen,
+             xlab = "lnRR")
+```
+
+Even removing albumen,  the results of the Test of Moderators still suggest that there is a relationship between the moderators and the dependent variable (p-val = 0.0201). However, the results for the predictor variables suggest that there is no significant relationship between the predictor variables and the dependent variable.
+
 
 ### Sample type adult
 
@@ -1086,12 +1172,15 @@ orchard_plot(sample_type_a_model,
 
 ### PFAS carbon chain length
 
-```{r, eval=FALSE}
+```{r}
 sum(is.na(dat$carbon_chain_length))
 #[1] 65
 dat_ccc <- dat[complete.cases(dat[ , "carbon_chain_length"]),]
 sum(is.na(dat_ccc$carbon_chain_length))
 #[1] 0
+```
+
+```{r, eval=FALSE}
 ccl_model <- run_model(dat_ccc, ~scale(carbon_chain_length))
 
 save(ccl_model, file = here("Rdata", "ccl_model.RData"))
@@ -1140,6 +1229,8 @@ bubble_plot(ccl_model_no_alb,
 ### PFAS molecular weight
 
 ```{r, eval=FALSE}
+sum(is.na(dat$molecular_weight))
+# [1] 66
 mw_model <- run_model(dat, ~scale(molecular_weight))
 
 save(mw_model, file = here("Rdata", "mw_model.RData"))
@@ -1161,13 +1252,15 @@ cor.test(dat$carbon_chain_length, dat$molecular_weight) #extremely highly correl
 
 ### Functional group
 
-```{r, eval=FALSE}
+```{r}
 sum(is.na(dat$functional_group))
 #[1] 1
 dat_fg <- dat[complete.cases(dat[ , "functional_group"]),]
 sum(is.na(dat_fg$functional_group))
 #[1] 0
+```
 
+```{r, eval=FALSE}
 fun_gro_model <- run_model(dat_fg, ~ functional_group - 1)
 
 save(fun_gro_model, file = here("Rdata", "fun_gro_model.RData"))
@@ -1206,6 +1299,8 @@ orchard_plot(fun_gro_model,
 ### Diet
 
 ```{r, eval=FALSE}
+sum(is.na(dat$diet))
+#[1] 0
 diet_model <- run_model(dat, ~ diet)
 
 save(diet_model, file = here("Rdata", "diet_model.RData"))
@@ -1225,11 +1320,40 @@ orchard_plot(diet_model,
              data =dat, 
              xlab = "lnRR",
              angle = 45)
+
+subset(dat, dat$diet == "Insectivorous")$study_ID
+#Study S_002 is the only one including an insectivorous species
 ```
+
+#### Sensitivity analysis
+
+```{r, eval=FALSE}
+diet_model_sensitivity <- run_model(dat_noparus, ~ diet)
+
+save(diet_model_sensitivity, file = here("Rdata", "diet_model_sensitivity.RData"))
+```
+
+```{r}
+load(here("RData", "diet_model_sensitivity.RData"))
+summary(diet_model_sensitivity)
+#r2_ml(diet_model_sensitivity, dat_noparus, boot = 10)
+#                 Est.  2.5% 97.5%                                                                
+# R2_marginal    0.047 0.040 0.065
+# R2_conditional 0.071 0.043 0.138
+
+orchard_plot(diet_model_sensitivity,
+             mod = "diet",
+             group = "study_ID", 
+             data = dat_noinsectiv,
+             xlab = "lnRR")
+```
+
 
 ### Main food item
 
 ```{r, eval=FALSE}
+sum(is.na(dat$main_food_type))
+#[1] 0
 food_model <- run_model(dat, ~ main_food_type)
 
 save(food_model, file = here("Rdata", "food_model.RData"))
@@ -1251,9 +1375,11 @@ diet_model: Test of Moderators p-val = 0.0016 food_model: Test of Moderators p-v
 
 Thus, only diet added as moderator in the full model.
 
-### Bird's body weight
+### Body weight
 
 ```{r, eval=FALSE}
+sum(is.na(dat$body_weight_mean))
+#[1] 0
 body_weight_model <- run_model(dat, ~ body_weight_mean)
 
 save(body_weight_model, file = here("Rdata", "body_weight_model.RData"))
@@ -1274,9 +1400,28 @@ bubble_plot(body_weight_model,
              xlab = "body_weight_mean")
 ```
 
+#### Sensitivity analysis
+
+```{r, eval=FALSE}
+body_weight_model_sensitivity <- run_model(dat_noparus, ~ body_weight_mean)
+
+save(body_weight_model_sensitivity, file = here("Rdata", "body_weight_model_sensitivity.RData"))
+```
+
+```{r}
+load(here("RData", "body_weight_model_sensitivity.RData"))
+summary(body_weight_model_sensitivity)
+#r2_ml(body_weight_model_sensitivity, dat_noparus, boot = 10)
+#                 Est.  2.5% 97.5%                                                                  
+# R2_marginal    0.002 0.000 0.009
+# R2_conditional 0.038 0.001 0.091
+```
+
 ### Clutch size
 
 ```{r, eval=FALSE}
+sum(is.na(dat$clutch_size))
+#[1] 0
 clutch_size_model <- run_model(dat, ~ clutch_size)
 
 save(clutch_size_model, file = here("Rdata", "clutch_size_model.RData"))
@@ -1297,14 +1442,34 @@ bubble_plot(clutch_size_model,
              xlab = "clutch_size")
 ```
 
-### Egg weight
+#### Sensitivity analysis
 
 ```{r, eval=FALSE}
+clutch_size_model_sensitivity <- run_model(dat_noparus, ~ clutch_size)
+
+save(clutch_size_model_sensitivity, file = here("Rdata", "clutch_size_model_sensitivity.RData"))
+```
+
+```{r}
+load(here("RData", "clutch_size_model_sensitivity.RData"))
+summary(clutch_size_model_sensitivity)
+#r2_ml(clutch_size_model_sensitivity, dat_noparus, boot = 10)
+#                 Est. 2.5% 97.5%                                                                   
+# R2_marginal    0.001    0 0.007
+# R2_conditional 0.007    0 0.042
+```
+
+### Egg weight
+
+```{r}
 sum(is.na(dat$egg_weight_mean))
 #[1] 67
-dat_egg_weight <- dat[complete.cases(dat[ , "egg_weight_mean"]),]
+dat_egg_weight <- dat[complete.cases(dat[ , "egg_weight_mean"]),] #removing NAs
 sum(is.na(dat_egg_weight$egg_weight_mean))
 #[1] 0
+```
+
+```{r, eval=FALSE}
 egg_weight_model <- run_model(dat_egg_weight, ~ egg_weight_mean)
 
 save(egg_weight_model, file = here("Rdata", "egg_weight_model.RData"))
@@ -1314,7 +1479,7 @@ save(egg_weight_model, file = here("Rdata", "egg_weight_model.RData"))
 load(here("RData", "egg_weight_model.RData"))
 summary(egg_weight_model)
 #r2_ml(egg_weight_model, dat_egg_weight, boot = 10)
-#                 Est.  2.5% 97.5%                                                                                         
+#                 Est.  2.5% 97.5%                                                                                      
 # R2_marginal    0.003 0.000 0.026
 # R2_conditional 0.064 0.025 0.168
 
@@ -1325,10 +1490,43 @@ bubble_plot(egg_weight_model,
              xlab = "egg_weight_mean")
 ```
 
+#### Sensitivity analysis
+No Parus major
+
+```{r}
+sum(is.na(dat_noparus$egg_weight_mean))
+#[1] 28
+dat_egg_weight2 <- dat_noparus[complete.cases(dat_noparus[ , "egg_weight_mean"]),] #removing NAs
+sum(is.na(dat_egg_weight2$egg_weight_mean))
+#[1] 0
+```
+
+```{r, eval = FALSE}
+egg_weight_model_sensitivity <- run_model(dat_egg_weight2, ~ egg_weight_mean)
+
+save(egg_weight_model_sensitivity, file = here("Rdata", "egg_weight_model_sensitivity.RData"))
+```
+
+```{r}
+load(here("RData", "egg_weight_model_sensitivity.RData"))
+summary(egg_weight_model_sensitivity)
+#r2_ml(egg_weight_model_sensitivity, dat_egg_weight2, boot = 10)
+#                 Est.  2.5% 97.5%                                                        
+# R2_marginal    0.001 0.000 0.015
+# R2_conditional 0.033 0.002 0.072
+
+bubble_plot(egg_weight_model_sensitivity,
+             mod = "egg_weight_mean",
+             group = "study_ID",
+             data = dat_egg_weight2, 
+             xlab = "egg_weight_mean")
+```
+
+
 ### Laying order
 
 ```{r, eval=FALSE}
-sum(is.na(dat$laying_order)) #checking the number of NAs
+sum(is.na(dat$laying_order))
 #[1] 315
 laying_order_model <- run_model(dat, ~scale(laying_order))
 
@@ -1349,6 +1547,8 @@ bubble_plot(laying_order_model,
 ### Life stage progeny
 
 ```{r, eval=FALSE}
+sum(is.na(dat$life_stage_P))
+#[1] 0
 life_stage_model <- run_model(dat, ~ life_stage_P)
 
 save(life_stage_model, file = here("Rdata", "life_stage_model.RData"))
@@ -1370,7 +1570,7 @@ orchard_plot(life_stage_model,
              angle = 45)
 ```
 
-## Mulit-moderator models
+## Multi-moderator models
 
 ### Albumen \* Carbon chain length
 
@@ -1511,12 +1711,12 @@ full_model0 <- rma.mv(yi = lnRR,
                       V = VCV_lnRR, 
                       mods = ~1 + 
                         functional_group +
-                        scale(carbon_chain_length) +
+                        #scale(carbon_chain_length) +
                         sample_type_A +
                         sample_type_P +
                         scale(clutch_size) +
                         scale(body_weight_mean) +
-                        scale(egg_weight_mean) +
+                        #scale(egg_weight_mean) +
                         diet +
                         life_stage_P,
                       random = list(~1|study_ID,
@@ -1534,6 +1734,40 @@ save(full_model0, file = here("Rdata", "full_model0.RData"))
 load(here("RData", "full_model0.RData"))
 summary(full_model0)
 ```
+
+## Sensitivity analysis
+
+dat2 is data_pooled == "No" & nest == "Yes"
+
+```{r, eval=FALSE}
+full_model0_sensitivity2 <- rma.mv(yi = lnRR,
+                      V = VCV_lnRR_dat2, 
+                      mods = ~1 + 
+                        functional_group +
+                        scale(carbon_chain_length) +
+                        sample_type_A +
+                        sample_type_P +
+                        scale(clutch_size) +
+                        scale(body_weight_mean) +
+                        scale(egg_weight_mean) +
+                        diet +
+                        life_stage_P,
+                      random = list(~1|study_ID,
+                                    ~1|pfas_ID, 
+                                    ~1|es_ID
+                                    ),
+                      test = "t",
+                      data = dat2,
+                      sparse = TRUE)
+
+save(full_model0_sensitivity2, file = here("Rdata", "full_model0_sensitivity2.RData"))
+```
+
+```{r}
+load(here("RData", "full_model0_sensitivity2.RData"))
+summary(full_model0_sensitivity2)
+```
+
 
 # Model selection
 
@@ -1566,20 +1800,22 @@ save(mod.candidate, file = here("Rdata", "best_model.RData"))
 ```{r, eval=FALSE}
 # Next step, let’s select a sets of best model. This can be done by using thumb of rules, for example, delta AICc <= 4:
 subset(mod.candidate, delta <= 4, recalc.weights = FALSE)
-# Sum of weights for each variable included in the mod.candidate
+
 ```
 
+The model selection table shows the results of model selection based on the AICc criterion.
+
+The model with the best AICc is the one at the top of the table, which has the lowest AICc and the highest weight:
+
+| Global model call: rma.mv(yi = lnRR, V = VCV_lnRR, mods = \~1 + functional_group + scale(carbon_chain_length) + sample_type_A + sample_type_P, random = list(\~1 \| study_ID, \~1 \| pfas_ID, \~1 \| es_ID), data = dat, test = "t", sparse = TRUE) \-\-- Model selection table (Int) fnc_grp smp_typ_A smp_typ_P scl(crb_chn_lng) df logLik AICc delta weight 16 + + + + 0.3964 19 -479.083 998.8 0 0.948 Models ranked by AICc(x)
+
+All the variables (labeled "fnc_grp", "smp_typ_A", "smp_typ_P" and "crb_chn_lng") are included as predictors in the best model according to the AICc criterion. These variables are used as predictor in the model with the aim to explain the variation in the outcome variable, lnRR. The column labeled "scl(crb_chn_lng)" shows the scaling factor applied to the variable "carbon_chain_length" random effects term, so it means the variable "carbon_chain_length" is included in the model and it's random effects term has been scaled by 0.3964.
+
+## AIC weights
 ```{r}
 load(here("RData", "best_model.RData"))
-
+# Sum of weights for each variable included in the mod.candidate
 sw(mod.candidate)
-
-weights <- read_csv(here("Data", "sum_of_weights_AIC.csv"))
-
-weights <- weights %>% 
-  mutate(weights_percentage = round( Sum_of_weights * 100))
-
-weights$Predictor <- factor(weights$Predictor, levels = weights$Predictor[order(weights$weights_percentage, weights$R2_conditional)])
 ```
 
 R-squared conditional is more appropriate the R-squared marginal for comparing different models that have the same set of predictor variables and here we are comparing the R-squared of single-moderator meta-regression models that have the same random structure but a different moderator.
@@ -1587,6 +1823,13 @@ This is because R-squared conditional measures the strength of the relationship 
 
 Plot
 ```{r}
+weights <- read_csv(here("Data", "sum_of_weights_AIC.csv")) #upload data from sw(mod.candidate)
+
+weights <- weights %>% 
+  mutate(weights_percentage = round( Sum_of_weights * 100))
+
+weights$Predictor <- factor(weights$Predictor, levels = weights$Predictor[order(weights$weights_percentage, weights$R2_conditional)])
+
 
 AIC_weights <- ggplot(weights, aes(Predictor, Sum_of_weights)) +
   geom_col(aes(fill = ""), width = 0.7) +
@@ -1613,6 +1856,8 @@ AIC_weights <- ggplot(weights, aes(Predictor, Sum_of_weights)) +
                                       linewidth  = 0.2, 
                                       linetype = "dotted"))
 AIC_weights
+
+# Following code not needed
 
 # ggsave(here("RData", "AIC_weights.png"),
 #        width = 8.5,
@@ -1651,14 +1896,6 @@ AIC_weights
 #        height = 6)
 ```
 
-The model selection table shows the results of model selection based on the AICc criterion.
-
-The model with the best AICc is the one at the top of the table, which has the lowest AICc and the highest weight:
-
-| Global model call: rma.mv(yi = lnRR, V = VCV_lnRR, mods = \~1 + functional_group + scale(carbon_chain_length) + sample_type_A + sample_type_P, random = list(\~1 \| study_ID, \~1 \| pfas_ID, \~1 \| es_ID), data = dat, test = "t", sparse = TRUE) \-\-- Model selection table (Int) fnc_grp smp_typ_A smp_typ_P scl(crb_chn_lng) df logLik AICc delta weight 16 + + + + 0.3964 19 -479.083 998.8 0 0.948 Models ranked by AICc(x)
-
-All the variables (labeled "fnc_grp", "smp_typ_A", "smp_typ_P" and "crb_chn_lng") are included as predictors in the best model according to the AICc criterion. These variables are used as predictor in the model with the aim to explain the variation in the outcome variable, lnRR. The column labeled "scl(crb_chn_lng)" shows the scaling factor applied to the variable "carbon_chain_length" random effects term, so it means the variable "carbon_chain_length" is included in the model and it's random effects term has been scaled by 0.3964.
-
 # Conditional analyses
 
 # Publication bias
@@ -1687,6 +1924,17 @@ save(MLMR_mod_ess.se, file = here("Rdata", "MLMR_mod_ess.se.RData"))
 ```{r}
 load(here("RData", "MLMR_mod_ess.se.RData"))
 summary(MLMR_mod_ess.se)
+pb2_bubble <- orchaRd::mod_results(MLMR_mod_ess.se,
+                                  mod = "ess.se",
+                                  group = "study_ID",
+                                  data = dat)
+
+orchaRd::bubble_plot(pb2_bubble, 
+                     data = dat,
+                     group = "study_ID",
+                     mod = "ess.se",
+                     xlab = "ess.se", 
+                     legend.pos = "top.left")
 ```
 
 If we look at ess.se given under Model Results: p-value and 95% CIs suggest that there is no statistical relationship between the effect size its error, meaning that no small study effect exits.
@@ -1721,15 +1969,9 @@ orchaRd::bubble_plot(pb_bubble,
                      legend.pos = "top.left")
 ```
 
-If we look at ess.se given under Model Results: p-value and 95% CIs suggest that there is no statistical relationship between the effect size its error, meaning that no time-lag bias exits.
+p-value and 95% CIs suggest that there is no statistical relationship between the publication year and its error, meaning that no publication bias effect exits.
 
 # Sensitivity analysis - Models
-
--   Run a sensitivity analysis with and without the effect sizes that fail Geary's test.
-
-```{r}
-
-```
 
 -   Run a sensitivity analysis without pooled data (male+female) and adult and progeny from different nests (i.e., dat2)
 
